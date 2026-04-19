@@ -16,8 +16,8 @@ import { todayISO } from './utils';
 const STORAGE_KEY = 'thaifex-sales-proposal-draft-v3';
 const DEFAULT_SUBJECT = 'Quotation for Coconut Blossom Juice 250 ml';
 const LEGACY_SUBJECT = 'Buyer-ready quotation for Coconut Blossom Juice 250 ml';
-const DEFAULT_PRESENTER = 'Taninnuth Warittarasith (Tanin)';
-const LEGACY_PRESENTER = 'Taninnuth Warittarasith (TANIN)';
+const DEFAULT_PRESENTER = 'Taninnuth Warittarasith';
+const LEGACY_PRESENTER = 'Taninnuth Warittarasith';
 const LEGACY_INTRO_NOTE =
   'This proposal is prepared for fast review during buyer meetings and clean follow-up after the show.';
 
