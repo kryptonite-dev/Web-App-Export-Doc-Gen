@@ -7,12 +7,30 @@ export function Label({ children }: { children: React.ReactNode }) {
 export function Input(
   props: React.InputHTMLAttributes<HTMLInputElement> & { right?: React.ReactNode }
 ) {
-  const { right, ...rest } = props;
+  const { right, style, ...rest } = props;
   return (
     <div style={{ position: 'relative' }}>
-      <input {...rest} className={'input ' + (props.className || '')} />
+      <input
+        {...rest}
+        style={{
+          ...(style || {}),
+          ...(right ? { paddingRight: 52 } : {}),
+        }}
+        className={'input ' + (props.className || '')}
+      />
       {right && (
-        <div style={{ position: 'absolute', right: 8, top: 0, bottom: 0, display: 'flex', alignItems: 'center' }} className="muted">
+        <div
+          style={{
+            position: 'absolute',
+            right: 12,
+            top: 0,
+            bottom: 0,
+            display: 'flex',
+            alignItems: 'center',
+            pointerEvents: 'none',
+          }}
+          className="muted"
+        >
           {right}
         </div>
       )}

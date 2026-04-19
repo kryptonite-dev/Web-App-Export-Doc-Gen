@@ -85,7 +85,7 @@ export default function ClientProposalView({
           <div className="proposal-chip-row">
             <span className="proposal-chip proposal-chip-accent">{doc.docType}</span>
             {doc.eventName ? <span className="proposal-chip">{doc.eventName}</span> : null}
-            {doc.boothNo ? <span className="proposal-chip">Booth {doc.boothNo}</span> : null}
+            {doc.boothNo ? <span className="proposal-chip">{doc.boothNo}</span> : null}
           </div>
           <h1>{doc.subject || 'Trade-show commercial proposal'}</h1>
           <p>{summaryLine}</p>
