@@ -14,6 +14,12 @@ import { CommonDoc, Currency, Party } from './types';
 import { todayISO } from './utils';
 
 const STORAGE_KEY = 'thaifex-sales-proposal-draft-v3';
+const DEFAULT_SUBJECT = 'Quotation for Coconut Blossom Juice 250 ml';
+const LEGACY_SUBJECT = 'Buyer-ready quotation for Coconut Blossom Juice 250 ml';
+const DEFAULT_PRESENTER = 'Taninnuth Warittarasith (Tanin)';
+const LEGACY_PRESENTER = 'Taninnuth Warittarasith (TANIN)';
+const LEGACY_INTRO_NOTE =
+  'This proposal is prepared for fast review during buyer meetings and clean follow-up after the show.';
 
 function plusDaysISO(days: number) {
   const current = new Date();
@@ -27,7 +33,7 @@ function createInitialDoc(): CommonDoc {
   return {
     docType: 'Quotation',
     docNo: 'TFX-2026-001',
-    subject: 'Buyer-ready quotation for Coconut Blossom Juice 250 ml',
+    subject: DEFAULT_SUBJECT,
     docDate: todayISO(),
     validUntil: plusDaysISO(45),
     seller: {
@@ -39,7 +45,9 @@ function createInitialDoc(): CommonDoc {
       address: 'Company / Country\nUpdate after the booth conversation',
     },
     attn: 'Procurement Team',
-    fromPerson: 'Taninnuth Warittarasith (TANIN)',
+    buyerContactEmail: '',
+    buyerContactPhone: '',
+    fromPerson: DEFAULT_PRESENTER,
     fromTitle: 'Co-Founder',
     website: 'https://huqkhuun.com/',
     contactEmail: 'huqkhuun@gmail.com',
@@ -48,8 +56,7 @@ function createInitialDoc(): CommonDoc {
     eventDates: '26 - 30 May 2026',
     eventLocation: 'IMPACT Muang Thong Thani, Bangkok',
     boothNo: 'Hall 9 / Booth CC01',
-    introNote:
-      'This proposal is prepared for fast review during buyer meetings and clean follow-up after the show.',
+    introNote: '',
     deliveryTerms: INCOTERMS_PRESETS[0],
     brand: 'Coconut Blossom Collection',
     minOrderQty: {
@@ -85,7 +92,7 @@ function createInitialDoc(): CommonDoc {
     closing:
       'Thank you for meeting with us at THAIFEX - ANUGA ASIA 2026. We would be pleased to follow up with samples, specifications, and final commercial confirmation for your market.',
     signTitle: 'Co-Founder',
-    signatureName: 'Taninnuth Warittarasith (TANIN)',
+    signatureName: DEFAULT_PRESENTER,
     exchangeCurrency: 'USD',
     logoWidthPt: 110,
   };
@@ -103,9 +110,25 @@ function safeParseDraft(value: string | null) {
 function hydrateDoc(source?: Partial<CommonDoc> | null): CommonDoc {
   const base = createInitialDoc();
   if (!source) return base;
+
+  const normalizedSubject =
+    source.subject === LEGACY_SUBJECT ? DEFAULT_SUBJECT : source.subject;
+  const normalizedPresenter =
+    source.fromPerson === LEGACY_PRESENTER ? DEFAULT_PRESENTER : source.fromPerson;
+  const normalizedSignatureName =
+    source.signatureName === LEGACY_PRESENTER ? DEFAULT_PRESENTER : source.signatureName;
+  const normalizedIntroNote =
+    source.introNote === LEGACY_INTRO_NOTE ? '' : source.introNote;
+
   return {
     ...base,
     ...source,
+    subject: normalizedSubject?.trim() ? normalizedSubject : base.subject,
+    fromPerson: normalizedPresenter?.trim() ? normalizedPresenter : base.fromPerson,
+    signatureName: normalizedSignatureName?.trim()
+      ? normalizedSignatureName
+      : base.signatureName,
+    introNote: normalizedIntroNote?.trim() ? normalizedIntroNote : base.introNote,
     seller: {
       ...base.seller,
       ...(source.seller || {}),
@@ -114,6 +137,12 @@ function hydrateDoc(source?: Partial<CommonDoc> | null): CommonDoc {
       ...base.buyer,
       ...(source.buyer || {}),
     },
+    buyerContactEmail: source.buyerContactEmail?.trim()
+      ? source.buyerContactEmail
+      : base.buyerContactEmail,
+    buyerContactPhone: source.buyerContactPhone?.trim()
+      ? source.buyerContactPhone
+      : base.buyerContactPhone,
     website: source.website?.trim() ? source.website : base.website,
     contactEmail: source.contactEmail?.trim() ? source.contactEmail : base.contactEmail,
     items:
@@ -198,6 +227,44 @@ function fileToDataUrl(file: File) {
   });
 }
 
+function loadImageElement(dataUrl: string) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new window.Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error('Unable to load image for PDF export.'));
+    image.src = dataUrl;
+  });
+}
+
+async function rasterizeImageForPdf(
+  dataUrl?: string,
+  options?: {
+    backgroundColor?: string;
+    padding?: number;
+    maxDimension?: number;
+  }
+) {
+  if (!dataUrl) return undefined;
+  const image = await loadImageElement(dataUrl);
+  const padding = options?.padding ?? 20;
+  const backgroundColor = options?.backgroundColor ?? '#fffaf0';
+  const maxDimension = options?.maxDimension ?? 1600;
+  const sourceWidth = image.naturalWidth || image.width || 1;
+  const sourceHeight = image.naturalHeight || image.height || 1;
+  const scale = Math.min(1, maxDimension / Math.max(sourceWidth, sourceHeight));
+  const width = Math.max(1, Math.round(sourceWidth * scale));
+  const height = Math.max(1, Math.round(sourceHeight * scale));
+  const canvas = document.createElement('canvas');
+  canvas.width = width + padding * 2;
+  canvas.height = height + padding * 2;
+  const context = canvas.getContext('2d');
+  if (!context) return dataUrl;
+  context.fillStyle = backgroundColor;
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.drawImage(image, padding, padding, width, height);
+  return canvas.toDataURL('image/png');
+}
+
 function formatInputLines(lines?: string[]) {
   return (lines || []).join('\n');
 }
@@ -228,7 +295,6 @@ function App() {
   });
   const [status, setStatus] = useState('');
   const [isExporting, setIsExporting] = useState(false);
-  const [pdfPreview, setPdfPreview] = useState<{ url: string; filename: string } | null>(null);
 
   useEffect(() => {
     if (route.isClientView) return;
@@ -240,14 +306,6 @@ function App() {
       ? `${doc.subject || 'Client Proposal'} | Client View`
       : 'ThaiFex Sales Proposal Studio';
   }, [doc.subject, route.isClientView]);
-
-  useEffect(() => {
-    return () => {
-      if (pdfPreview?.url) {
-        URL.revokeObjectURL(pdfPreview.url);
-      }
-    };
-  }, [pdfPreview]);
 
   const deliveryPresetSelected = INCOTERMS_PRESETS.includes(doc.deliveryTerms);
   const paymentPresetSelected = PAYMENT_PRESETS.includes(doc.paymentTerms);
@@ -345,21 +403,25 @@ function App() {
     updateDoc('signatureImageDataUrl', dataUrl);
   };
 
-  const replacePdfPreview = (next: { url: string; filename: string } | null) => {
-    setPdfPreview((current) => {
-      if (current?.url) {
-        URL.revokeObjectURL(current.url);
-      }
-      return next;
-    });
-  };
-
-  const buildPdfPreview = async () => {
+  const buildPdfFile = async () => {
     const [{ pdf }, { default: QuotationInvoicePDF }] = await Promise.all([
       import('@react-pdf/renderer'),
       import('./components/PDF/QuotationInvoicePDF'),
     ]);
-    const blob = await pdf(<QuotationInvoicePDF doc={doc} />).toBlob();
+    const preparedDoc: CommonDoc = {
+      ...doc,
+      logoDataUrl: await rasterizeImageForPdf(doc.logoDataUrl, {
+        backgroundColor: '#fff8ec',
+        padding: 32,
+        maxDimension: 1400,
+      }),
+      signatureImageDataUrl: await rasterizeImageForPdf(doc.signatureImageDataUrl, {
+        backgroundColor: '#fffdf8',
+        padding: 18,
+        maxDimension: 1400,
+      }),
+    };
+    const blob = await pdf(<QuotationInvoicePDF doc={preparedDoc} />).toBlob();
 
     return {
       url: URL.createObjectURL(blob),
@@ -367,41 +429,41 @@ function App() {
     };
   };
 
-  const handlePreviewPdf = async () => {
+  const handleOpenPdf = async () => {
+    const popup = window.open('', '_blank');
+    if (popup) {
+      popup.document.title = 'Preparing PDF...';
+      popup.document.body.innerHTML =
+        '<div style="font-family: Avenir Next, Segoe UI, sans-serif; padding: 24px; color: #5b4532;">Preparing PDF...</div>';
+    }
+
     try {
       setIsExporting(true);
       setStatus('');
-      replacePdfPreview(await buildPdfPreview());
-      setStatus('PDF preview is ready. Review it first, then download from the preview panel.');
+      const pdfFile = await buildPdfFile();
+
+      if (popup) {
+        popup.location.replace(pdfFile.url);
+      } else {
+        const link = document.createElement('a');
+        link.href = pdfFile.url;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.click();
+      }
+
+      window.setTimeout(() => {
+        URL.revokeObjectURL(pdfFile.url);
+      }, 60_000);
+
+      setStatus('PDF opened in a new tab.');
     } catch (error) {
+      if (popup) popup.close();
       console.error(error);
       setStatus('PDF export failed. Check the console for details.');
     } finally {
       setIsExporting(false);
     }
-  };
-
-  const handleDownloadPdf = () => {
-    if (!pdfPreview) return;
-    const link = document.createElement('a');
-    link.href = pdfPreview.url;
-    link.download = pdfPreview.filename;
-    link.click();
-    setStatus('PDF downloaded successfully.');
-  };
-
-  const handleOpenPdfInNewTab = () => {
-    if (!pdfPreview) return;
-    const link = document.createElement('a');
-    link.href = pdfPreview.url;
-    link.target = '_blank';
-    link.rel = 'noopener noreferrer';
-    link.click();
-    setStatus('PDF preview opened in a new tab.');
-  };
-
-  const handleClosePdfPreview = () => {
-    replacePdfPreview(null);
   };
 
   const handleOpenClientView = () => {
@@ -458,8 +520,8 @@ function App() {
           <button className="btn" onClick={handleCopyLink}>
             Copy online link
           </button>
-          <button className="btn primary" onClick={handlePreviewPdf} disabled={isExporting}>
-            {isExporting ? 'Preparing PDF...' : 'Preview PDF'}
+          <button className="btn primary" onClick={handleOpenPdf} disabled={isExporting}>
+            {isExporting ? 'Preparing PDF...' : 'Open PDF'}
           </button>
           <button className="btn" onClick={handleReset}>
             Reset sample
@@ -617,6 +679,20 @@ function App() {
                   rows={4}
                   value={doc.buyer.address}
                   onChange={(event) => updateParty('buyer', 'address', event.target.value)}
+                />
+              </div>
+              <div className="grid">
+                <Label>Buyer contact email</Label>
+                <Input
+                  value={doc.buyerContactEmail || ''}
+                  onChange={(event) => updateDoc('buyerContactEmail', event.target.value)}
+                />
+              </div>
+              <div className="grid">
+                <Label>Buyer contact phone</Label>
+                <Input
+                  value={doc.buyerContactPhone || ''}
+                  onChange={(event) => updateDoc('buyerContactPhone', event.target.value)}
                 />
               </div>
               <div className="grid">
@@ -869,35 +945,6 @@ function App() {
           </div>
         </div>
       </div>
-
-      {pdfPreview ? (
-        <div className="pdf-preview-overlay">
-          <div className="pdf-preview-dialog">
-            <div className="pdf-preview-bar">
-              <div>
-                <div className="preview-eyebrow">PDF handover file</div>
-                <h2>Preview before download</h2>
-              </div>
-              <div className="hero-actions" style={{ maxWidth: 'none' }}>
-                <button className="btn" onClick={handleClosePdfPreview}>
-                  Close
-                </button>
-                <button className="btn" onClick={handleOpenPdfInNewTab}>
-                  Open in new tab
-                </button>
-                <button className="btn primary" onClick={handleDownloadPdf}>
-                  Download PDF
-                </button>
-              </div>
-            </div>
-            <iframe
-              title="PDF preview"
-              src={pdfPreview.url}
-              className="pdf-preview-frame"
-            />
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }

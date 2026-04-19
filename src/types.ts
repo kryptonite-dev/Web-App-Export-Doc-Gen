@@ -13,6 +13,8 @@ export type CommonDoc = {
   seller: Party;
   buyer: Party;
   attn: string;
+  buyerContactEmail?: string;
+  buyerContactPhone?: string;
   fromPerson: string;
   fromTitle?: string;
   fax?: string;

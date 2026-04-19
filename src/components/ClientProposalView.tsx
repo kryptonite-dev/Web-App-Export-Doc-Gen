@@ -34,6 +34,15 @@ function cleanList(items?: string[]) {
   return (items || []).map((item) => item.trim()).filter(Boolean);
 }
 
+function BuyerInfoItem({ label, value }: { label: string; value?: React.ReactNode }) {
+  return (
+    <div className={`proposal-buyer-item ${label === 'Buyer address' ? 'full-span' : ''}`}>
+      <div className="proposal-eyebrow">{label}</div>
+      <div className="proposal-buyer-value">{value || '-'}</div>
+    </div>
+  );
+}
+
 export default function ClientProposalView({
   doc,
   embedded = false,
@@ -48,10 +57,7 @@ export default function ClientProposalView({
   const highlights = cleanList(doc.productHighlights);
   const certifications = cleanList(doc.certifications);
   const notes = cleanList(doc.notes);
-  const summaryLine =
-    doc.introNote ||
-    firstMeaningfulLine(notes) ||
-    'Commercial proposal prepared for buyer review and post-meeting follow-up.';
+  const summaryLine = doc.introNote?.trim() || '';
 
   return (
     <div className={`proposal-page ${embedded ? 'embedded' : 'full'}`}>
@@ -60,16 +66,45 @@ export default function ClientProposalView({
           <div className="proposal-chip-row">
             <span className="proposal-chip proposal-chip-accent">{doc.docType}</span>
             {doc.eventName ? <span className="proposal-chip">{doc.eventName}</span> : null}
+            {doc.eventDates ? <span className="proposal-chip">{doc.eventDates}</span> : null}
             {doc.boothNo ? <span className="proposal-chip">{doc.boothNo}</span> : null}
             {doc.buyer.name ? <span className="proposal-chip">Prepared for {doc.buyer.name}</span> : null}
           </div>
           <h1>{doc.subject || 'Trade-show commercial proposal'}</h1>
-          <p>{summaryLine}</p>
+          {summaryLine ? <p>{summaryLine}</p> : null}
           <div className="proposal-chip-row">
-            {doc.eventDates ? <span className="proposal-chip">{doc.eventDates}</span> : null}
+            {doc.docDate ? (
+              <span className="proposal-chip">Issued {formatLongDate(doc.docDate)}</span>
+            ) : null}
             {doc.validUntil ? (
               <span className="proposal-chip">Valid until {formatLongDate(doc.validUntil)}</span>
             ) : null}
+          </div>
+
+          <div className="proposal-buyer-panel">
+            <div className="proposal-eyebrow">Buyer details</div>
+            <div className="proposal-buyer-grid">
+              <BuyerInfoItem label="Buyer company" value={doc.buyer.name || '-'} />
+              <BuyerInfoItem label="Attention" value={doc.attn || '-'} />
+              <BuyerInfoItem
+                label="Buyer address"
+                value={
+                  doc.buyer.address ? (
+                    <div className="proposal-block">
+                      {doc.buyer.address.split('\n').map((line) => (
+                        <span key={line} className="proposal-block-line">
+                          {line}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    '-'
+                  )
+                }
+              />
+              <BuyerInfoItem label="Contact email" value={doc.buyerContactEmail || '-'} />
+              <BuyerInfoItem label="Contact phone" value={doc.buyerContactPhone || '-'} />
+            </div>
           </div>
         </div>
 
@@ -149,7 +184,7 @@ export default function ClientProposalView({
         <div className="proposal-card-head">
           <div>
             <div className="proposal-eyebrow">Commercial terms</div>
-            <h2>Decision-ready terms</h2>
+            <h2>Commercial terms</h2>
           </div>
         </div>
         <div className="proposal-metric-grid">
@@ -177,8 +212,8 @@ export default function ClientProposalView({
           <article className="proposal-card">
             <div className="proposal-card-head">
               <div>
-                <div className="proposal-eyebrow">Buyer hooks</div>
-                <h2>Why this offer stands out</h2>
+                <div className="proposal-eyebrow">Highlights</div>
+                <h2>Product highlights</h2>
               </div>
             </div>
             <div className="proposal-bullet-list">
@@ -193,8 +228,8 @@ export default function ClientProposalView({
           <article className="proposal-card">
             <div className="proposal-card-head">
               <div>
-                <div className="proposal-eyebrow">Proof points</div>
-                <h2>Certifications and readiness</h2>
+                <div className="proposal-eyebrow">Certifications</div>
+                <h2>Certifications</h2>
               </div>
             </div>
             <div className="proposal-pill-wrap">
@@ -212,8 +247,8 @@ export default function ClientProposalView({
         <section className="proposal-card">
           <div className="proposal-card-head">
             <div>
-              <div className="proposal-eyebrow">Buyer hooks</div>
-              <h2>Why this offer stands out</h2>
+              <div className="proposal-eyebrow">Highlights</div>
+              <h2>Product highlights</h2>
             </div>
           </div>
           <div className="proposal-bullet-list">
@@ -230,8 +265,8 @@ export default function ClientProposalView({
         <section className="proposal-card">
           <div className="proposal-card-head">
             <div>
-              <div className="proposal-eyebrow">Proof points</div>
-              <h2>Certifications and readiness</h2>
+              <div className="proposal-eyebrow">Certifications</div>
+              <h2>Certifications</h2>
             </div>
           </div>
           <div className="proposal-pill-wrap">
@@ -258,12 +293,6 @@ export default function ClientProposalView({
               {doc.closing ||
                 'Thank you for your time. We will follow up with samples, specifications, and final commercial confirmation immediately after the meeting.'}
             </p>
-            <div className="proposal-contact-strip">
-              <span>{doc.fromPerson || doc.seller.name}</span>
-              {doc.contactEmail ? <span>{doc.contactEmail}</span> : null}
-              {doc.contactPhone ? <span>{doc.contactPhone}</span> : null}
-              {doc.website ? <span>{doc.website}</span> : null}
-            </div>
           </div>
 
           <div className="proposal-signature-block">
@@ -274,13 +303,13 @@ export default function ClientProposalView({
                 className="proposal-signature-image"
               />
             ) : null}
-            <div className="proposal-signature-line" />
             <div className="proposal-signature-name">
               {doc.signatureName || doc.fromPerson || doc.seller.name}
             </div>
             <div className="proposal-signature-title">
               {doc.signTitle || doc.fromTitle || 'Sales Representative'}
             </div>
+            <div className="proposal-signature-line" />
           </div>
         </div>
       </section>
