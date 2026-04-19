@@ -405,37 +405,21 @@ function firstLine(items?: string[]) {
   return items?.find((item) => item.trim().length > 0) || '';
 }
 
-function renderDetailRows(rows: Array<{ label: string; value?: string }>) {
-  return rows.map((row, index) => (
-    <View
-      key={`${row.label}-${row.value || 'empty'}`}
-      style={index === rows.length - 1 ? [styles.detailRow, styles.detailRowLast] : styles.detailRow}
-    >
-      <Text style={styles.detailKey}>{row.label}</Text>
-      <Text style={styles.detailValue}>{row.value || '-'}</Text>
-    </View>
-  ));
+function cleanList(items?: string[]) {
+  return (items || []).map((item) => item.trim()).filter(Boolean);
 }
 
 export default function QuotationInvoicePDF({ doc }: { doc: CommonDoc }) {
   const currency =
     doc.exchangeCurrency || doc.items[0]?.unitPrice?.currency || doc.price?.currency || 'USD';
   const totals = computeTotals(doc.items, currency);
+  const notes = cleanList(doc.notes);
   const summary =
     doc.introNote ||
-    firstLine(doc.notes) ||
+    firstLine(notes) ||
     'Commercial proposal prepared for fast buyer review and post-meeting follow-up.';
-  const highlights =
-    doc.productHighlights && doc.productHighlights.length > 0
-      ? doc.productHighlights
-      : [
-          'Buyer-facing commercial summary prepared for trade-show use.',
-          'OEM and private-label discussion can continue immediately after the meeting.',
-        ];
-  const certifications =
-    doc.certifications && doc.certifications.length > 0
-      ? doc.certifications
-      : ['Add certifications or market proof points before sending this quotation.'];
+  const highlights = cleanList(doc.productHighlights);
+  const certifications = cleanList(doc.certifications);
 
   return (
     <Document>
@@ -460,25 +444,20 @@ export default function QuotationInvoicePDF({ doc }: { doc: CommonDoc }) {
               <View style={styles.presenterPanel}>
                 <Text style={styles.panelLabel}>Presented by</Text>
                 <Text style={styles.panelName}>{doc.seller.name || 'Your company'}</Text>
-                <Text style={styles.panelValue}>{doc.seller.address || '-'}</Text>
-
-                <View style={styles.metaRow}>
-                  <Text style={styles.panelLabel}>Presenter</Text>
-                  <Text style={styles.metaValue}>{doc.fromPerson || '-'}</Text>
-                </View>
-                <View style={styles.metaRow}>
-                  <Text style={styles.panelLabel}>Role</Text>
-                  <Text style={styles.metaValue}>{doc.fromTitle || doc.signTitle || '-'}</Text>
-                </View>
+                {doc.fromPerson ? <Text style={styles.panelValue}>{doc.fromPerson}</Text> : null}
+                {doc.fromTitle ? <Text style={styles.panelValue}>{doc.fromTitle}</Text> : null}
+                {doc.contactEmail ? <Text style={styles.panelValue}>{doc.contactEmail}</Text> : null}
+                {doc.contactPhone ? <Text style={styles.panelValue}>{doc.contactPhone}</Text> : null}
+                {doc.website ? <Text style={styles.panelValue}>{doc.website}</Text> : null}
 
                 <View style={styles.splitRow}>
                   <View style={styles.splitCell}>
-                    <Text style={styles.metaLabel}>Issued</Text>
-                    <Text style={styles.metaValue}>{formatDate(doc.docDate)}</Text>
-                  </View>
-                  <View style={styles.splitCell}>
                     <Text style={styles.metaLabel}>Valid until</Text>
                     <Text style={styles.metaValue}>{formatDate(doc.validUntil)}</Text>
+                  </View>
+                  <View style={styles.splitCell}>
+                    <Text style={styles.metaLabel}>Buyer</Text>
+                    <Text style={styles.metaValue}>{doc.buyer.name || 'Prospective Buyer'}</Text>
                   </View>
                 </View>
 
@@ -488,45 +467,6 @@ export default function QuotationInvoicePDF({ doc }: { doc: CommonDoc }) {
                 </View>
               </View>
             </View>
-          </View>
-        </View>
-
-        <View style={styles.infoRow}>
-          <View style={styles.infoCard}>
-            <Text style={styles.cardLabel}>Customer</Text>
-            <Text style={styles.cardTitle}>Meeting summary</Text>
-            {renderDetailRows([
-              { label: 'Buyer', value: doc.buyer.name || 'Prospective Buyer' },
-              { label: 'Attn.', value: doc.attn || 'Procurement Team' },
-              { label: 'Buyer address', value: doc.buyer.address || '-' },
-            ])}
-          </View>
-
-          <View style={styles.infoCard}>
-            <Text style={styles.cardLabel}>Presenter</Text>
-            <Text style={styles.cardTitle}>{doc.fromPerson || doc.seller.name}</Text>
-            {renderDetailRows([
-              { label: 'Title', value: doc.fromTitle || doc.signTitle || '-' },
-              { label: 'Email', value: doc.contactEmail || '-' },
-              { label: 'Phone', value: doc.contactPhone || '-' },
-              { label: 'Website', value: doc.website || '-' },
-            ])}
-          </View>
-
-          <View style={styles.infoCard}>
-            <Text style={styles.cardLabel}>Commercial snapshot</Text>
-            <Text style={styles.cardTitle}>Quick terms</Text>
-            {renderDetailRows([
-              { label: 'Delivery', value: doc.deliveryTerms || '-' },
-              { label: 'Payment', value: doc.paymentTerms || '-' },
-              {
-                label: 'MOQ',
-                value: doc.minOrderQty
-                  ? `${fmt(doc.minOrderQty.value, 0)} ${doc.minOrderQty.unit}`
-                  : '-',
-              },
-              { label: 'Lead time', value: doc.leadTime || '-' },
-            ])}
           </View>
         </View>
 
@@ -587,10 +527,6 @@ export default function QuotationInvoicePDF({ doc }: { doc: CommonDoc }) {
               <Text style={styles.metricValue}>{doc.paymentTerms || '-'}</Text>
             </View>
             <View style={styles.metricCard}>
-              <Text style={styles.metricLabel}>Brand / Collection</Text>
-              <Text style={styles.metricValue}>{doc.brand || '-'}</Text>
-            </View>
-            <View style={styles.metricCard}>
               <Text style={styles.metricLabel}>MOQ</Text>
               <Text style={styles.metricValue}>
                 {doc.minOrderQty
@@ -602,19 +538,45 @@ export default function QuotationInvoicePDF({ doc }: { doc: CommonDoc }) {
               <Text style={styles.metricLabel}>Lead time</Text>
               <Text style={styles.metricValue}>{doc.leadTime || '-'}</Text>
             </View>
-            <View style={styles.metricCard}>
-              <Text style={styles.metricLabel}>FX Rate</Text>
-              <Text style={styles.metricValue}>
-                {typeof doc.fxRate === 'number'
-                  ? `1 ${currency.toUpperCase()} = ${fmt(doc.fxRate)} THB`
-                  : '-'}
-              </Text>
-            </View>
           </View>
+          {notes.length > 0 ? (
+            <View style={styles.noteBox}>
+              {notes.map((note) => (
+                <Text key={note}>{note}</Text>
+              ))}
+            </View>
+          ) : null}
         </View>
 
-        <View style={styles.twoCol}>
-          <View style={styles.halfCard}>
+        {highlights.length > 0 && certifications.length > 0 ? (
+          <View style={styles.twoCol}>
+            <View style={styles.halfCard}>
+              <Text style={styles.cardLabel}>Buyer hooks</Text>
+              <Text style={styles.sectionTitle}>Why this offer stands out</Text>
+              {highlights.map((item) => (
+                <View style={styles.bulletRow} key={item}>
+                  <View style={styles.bulletDot} />
+                  <Text style={styles.bulletText}>{item}</Text>
+                </View>
+              ))}
+            </View>
+
+            <View style={styles.halfCard}>
+              <Text style={styles.cardLabel}>Proof points</Text>
+              <Text style={styles.sectionTitle}>Certifications and readiness</Text>
+              <View style={styles.pillWrap}>
+                {certifications.map((item) => (
+                  <Text key={item} style={styles.pill}>
+                    {item}
+                  </Text>
+                ))}
+              </View>
+            </View>
+          </View>
+        ) : null}
+
+        {highlights.length > 0 && certifications.length === 0 ? (
+          <View style={styles.fullCard}>
             <Text style={styles.cardLabel}>Buyer hooks</Text>
             <Text style={styles.sectionTitle}>Why this offer stands out</Text>
             {highlights.map((item) => (
@@ -624,10 +586,12 @@ export default function QuotationInvoicePDF({ doc }: { doc: CommonDoc }) {
               </View>
             ))}
           </View>
+        ) : null}
 
-          <View style={styles.halfCard}>
+        {certifications.length > 0 && highlights.length === 0 ? (
+          <View style={styles.fullCard}>
             <Text style={styles.cardLabel}>Proof points</Text>
-            <Text style={styles.sectionTitle}>Certifications and notes</Text>
+            <Text style={styles.sectionTitle}>Certifications and readiness</Text>
             <View style={styles.pillWrap}>
               {certifications.map((item) => (
                 <Text key={item} style={styles.pill}>
@@ -635,15 +599,8 @@ export default function QuotationInvoicePDF({ doc }: { doc: CommonDoc }) {
                 </Text>
               ))}
             </View>
-            {doc.notes && doc.notes.length > 0 ? (
-              <View style={styles.noteBox}>
-                {doc.notes.map((note) => (
-                  <Text key={note}>{note}</Text>
-                ))}
-              </View>
-            ) : null}
           </View>
-        </View>
+        ) : null}
 
         <View style={styles.signCard}>
           <Text style={styles.cardLabel}>Next step</Text>

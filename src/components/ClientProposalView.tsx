@@ -21,14 +21,6 @@ function lineAmount(item: LineItem) {
   return (item.qty || 0) * (item.unitPrice?.value || 0);
 }
 
-function renderAddress(address?: string) {
-  return (address || '-').split('\n').map((line, index) => (
-    <span key={`${line}-${index}`} className="proposal-block-line">
-      {line}
-    </span>
-  ));
-}
-
 function InfoTile({ label, value }: { label: string; value?: React.ReactNode }) {
   return (
     <div className="proposal-metric">
@@ -38,13 +30,8 @@ function InfoTile({ label, value }: { label: string; value?: React.ReactNode }) 
   );
 }
 
-function DetailRow({ label, value }: { label: string; value?: React.ReactNode }) {
-  return (
-    <div className="proposal-detail-row">
-      <span className="proposal-detail-label">{label}</span>
-      <span className="proposal-detail-value">{value || '-'}</span>
-    </div>
-  );
+function cleanList(items?: string[]) {
+  return (items || []).map((item) => item.trim()).filter(Boolean);
 }
 
 export default function ClientProposalView({
@@ -58,25 +45,13 @@ export default function ClientProposalView({
   const currency =
     doc.exchangeCurrency || items[0]?.unitPrice?.currency || doc.price?.currency || 'USD';
   const totals = computeTotals(items, currency);
-  const readyHighlights =
-    doc.productHighlights && doc.productHighlights.length > 0
-      ? doc.productHighlights
-      : [
-          'Buyer-facing summary prepared for fast review during trade-show meetings.',
-          'Commercial terms can be finalised immediately after product and packaging discussion.',
-          'Use this page on tablet, phone, or PDF as the same proposal source.',
-        ];
-  const readyCertifications =
-    doc.certifications && doc.certifications.length > 0
-      ? doc.certifications
-      : [
-          'Fill in your real certifications here before meeting customers.',
-          'Add export readiness points such as OEM support, shelf life, or market coverage.',
-        ];
+  const highlights = cleanList(doc.productHighlights);
+  const certifications = cleanList(doc.certifications);
+  const notes = cleanList(doc.notes);
   const summaryLine =
     doc.introNote ||
-    firstMeaningfulLine(doc.notes) ||
-    'Commercial proposal prepared for buyer discussion and quick follow-up after the meeting.';
+    firstMeaningfulLine(notes) ||
+    'Commercial proposal prepared for buyer review and post-meeting follow-up.';
 
   return (
     <div className={`proposal-page ${embedded ? 'embedded' : 'full'}`}>
@@ -86,12 +61,12 @@ export default function ClientProposalView({
             <span className="proposal-chip proposal-chip-accent">{doc.docType}</span>
             {doc.eventName ? <span className="proposal-chip">{doc.eventName}</span> : null}
             {doc.boothNo ? <span className="proposal-chip">{doc.boothNo}</span> : null}
+            {doc.buyer.name ? <span className="proposal-chip">Prepared for {doc.buyer.name}</span> : null}
           </div>
           <h1>{doc.subject || 'Trade-show commercial proposal'}</h1>
           <p>{summaryLine}</p>
           <div className="proposal-chip-row">
             {doc.eventDates ? <span className="proposal-chip">{doc.eventDates}</span> : null}
-            {doc.eventLocation ? <span className="proposal-chip">{doc.eventLocation}</span> : null}
             {doc.validUntil ? (
               <span className="proposal-chip">Valid until {formatLongDate(doc.validUntil)}</span>
             ) : null}
@@ -109,7 +84,6 @@ export default function ClientProposalView({
             </div>
           </div>
 
-          <div className="proposal-company-block">{renderAddress(doc.seller.address)}</div>
           <div className="proposal-company-meta">
             {doc.fromPerson ? <div>{doc.fromPerson}</div> : null}
             {doc.fromTitle ? <div>{doc.fromTitle}</div> : null}
@@ -118,55 +92,6 @@ export default function ClientProposalView({
             {doc.website ? <div>{doc.website}</div> : null}
           </div>
         </div>
-      </section>
-
-      <section className="proposal-grid">
-        <article className="proposal-card">
-          <div className="proposal-card-head">
-            <div>
-              <div className="proposal-eyebrow">Customer</div>
-              <h2>Meeting summary</h2>
-            </div>
-          </div>
-          <div className="proposal-detail-stack">
-            <DetailRow label="Buyer" value={doc.buyer.name || 'Prospective buyer'} />
-            <DetailRow label="Attn." value={doc.attn || 'Procurement / Sales Team'} />
-            <DetailRow label="Document no." value={doc.docNo || '-'} />
-            <DetailRow label="Issued" value={formatLongDate(doc.docDate)} />
-            <DetailRow label="Valid until" value={formatLongDate(doc.validUntil)} />
-            <DetailRow label="Buyer address" value={<span className="proposal-block">{renderAddress(doc.buyer.address)}</span>} />
-          </div>
-        </article>
-
-        <article className="proposal-card">
-          <div className="proposal-card-head">
-            <div>
-              <div className="proposal-eyebrow">Commercial terms</div>
-              <h2>Quick-read terms</h2>
-            </div>
-          </div>
-          <div className="proposal-metric-grid">
-            <InfoTile label="Delivery terms" value={doc.deliveryTerms} />
-            <InfoTile label="Payment" value={doc.paymentTerms} />
-            <InfoTile
-              label="MOQ"
-              value={
-                doc.minOrderQty
-                  ? `${fmt(doc.minOrderQty.value, 0)} ${doc.minOrderQty.unit}`
-                  : '-'
-              }
-            />
-            <InfoTile label="Lead time" value={doc.leadTime || '-'} />
-            <InfoTile
-              label="FX rate"
-              value={
-                typeof doc.fxRate === 'number'
-                  ? `1 ${currency.toUpperCase()} = ${fmt(doc.fxRate)} THB`
-                  : '-'
-              }
-            />
-          </div>
-        </article>
       </section>
 
       <section className="proposal-card proposal-table-card">
@@ -220,8 +145,71 @@ export default function ClientProposalView({
         </div>
       </section>
 
-      <section className="proposal-grid">
-        <article className="proposal-card">
+      <section className="proposal-card">
+        <div className="proposal-card-head">
+          <div>
+            <div className="proposal-eyebrow">Commercial terms</div>
+            <h2>Decision-ready terms</h2>
+          </div>
+        </div>
+        <div className="proposal-metric-grid">
+          <InfoTile label="Delivery terms" value={doc.deliveryTerms || '-'} />
+          <InfoTile label="Payment" value={doc.paymentTerms || '-'} />
+          <InfoTile
+            label="MOQ"
+            value={
+              doc.minOrderQty ? `${fmt(doc.minOrderQty.value, 0)} ${doc.minOrderQty.unit}` : '-'
+            }
+          />
+          <InfoTile label="Lead time" value={doc.leadTime || '-'} />
+        </div>
+        {notes.length > 0 ? (
+          <div className="proposal-note-box">
+            {notes.map((note) => (
+              <div key={note}>{note}</div>
+            ))}
+          </div>
+        ) : null}
+      </section>
+
+      {highlights.length > 0 && certifications.length > 0 ? (
+        <section className="proposal-grid">
+          <article className="proposal-card">
+            <div className="proposal-card-head">
+              <div>
+                <div className="proposal-eyebrow">Buyer hooks</div>
+                <h2>Why this offer stands out</h2>
+              </div>
+            </div>
+            <div className="proposal-bullet-list">
+              {highlights.map((item) => (
+                <div className="proposal-bullet-item" key={item}>
+                  {item}
+                </div>
+              ))}
+            </div>
+          </article>
+
+          <article className="proposal-card">
+            <div className="proposal-card-head">
+              <div>
+                <div className="proposal-eyebrow">Proof points</div>
+                <h2>Certifications and readiness</h2>
+              </div>
+            </div>
+            <div className="proposal-pill-wrap">
+              {certifications.map((item) => (
+                <span className="proposal-pill" key={item}>
+                  {item}
+                </span>
+              ))}
+            </div>
+          </article>
+        </section>
+      ) : null}
+
+      {highlights.length > 0 && certifications.length === 0 ? (
+        <section className="proposal-card">
           <div className="proposal-card-head">
             <div>
               <div className="proposal-eyebrow">Buyer hooks</div>
@@ -229,15 +217,17 @@ export default function ClientProposalView({
             </div>
           </div>
           <div className="proposal-bullet-list">
-            {readyHighlights.map((item) => (
+            {highlights.map((item) => (
               <div className="proposal-bullet-item" key={item}>
                 {item}
               </div>
             ))}
           </div>
-        </article>
+        </section>
+      ) : null}
 
-        <article className="proposal-card">
+      {certifications.length > 0 && highlights.length === 0 ? (
+        <section className="proposal-card">
           <div className="proposal-card-head">
             <div>
               <div className="proposal-eyebrow">Proof points</div>
@@ -245,21 +235,14 @@ export default function ClientProposalView({
             </div>
           </div>
           <div className="proposal-pill-wrap">
-            {readyCertifications.map((item) => (
+            {certifications.map((item) => (
               <span className="proposal-pill" key={item}>
                 {item}
               </span>
             ))}
           </div>
-          {doc.notes && doc.notes.length > 0 ? (
-            <div className="proposal-note-box">
-              {doc.notes.map((note) => (
-                <div key={note}>{note}</div>
-              ))}
-            </div>
-          ) : null}
-        </article>
-      </section>
+        </section>
+      ) : null}
 
       <section className="proposal-card proposal-signoff">
         <div className="proposal-card-head">
@@ -273,12 +256,13 @@ export default function ClientProposalView({
           <div>
             <p className="proposal-closing">
               {doc.closing ||
-                'Thank you for your time. We will be ready to follow up with samples, specifications, and final commercial confirmation immediately after the meeting.'}
+                'Thank you for your time. We will follow up with samples, specifications, and final commercial confirmation immediately after the meeting.'}
             </p>
             <div className="proposal-contact-strip">
               <span>{doc.fromPerson || doc.seller.name}</span>
               {doc.contactEmail ? <span>{doc.contactEmail}</span> : null}
               {doc.contactPhone ? <span>{doc.contactPhone}</span> : null}
+              {doc.website ? <span>{doc.website}</span> : null}
             </div>
           </div>
 

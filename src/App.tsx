@@ -178,13 +178,6 @@ function getRouteContext() {
   };
 }
 
-function buildBuilderUrl() {
-  const url = new URL(window.location.href);
-  url.search = '';
-  url.hash = '';
-  return url.toString();
-}
-
 function buildClientUrl(doc: CommonDoc, withPayload: boolean) {
   const url = new URL(window.location.href);
   url.search = '';
@@ -235,6 +228,7 @@ function App() {
   });
   const [status, setStatus] = useState('');
   const [isExporting, setIsExporting] = useState(false);
+  const [pdfPreview, setPdfPreview] = useState<{ url: string; filename: string } | null>(null);
 
   useEffect(() => {
     if (route.isClientView) return;
@@ -246,6 +240,14 @@ function App() {
       ? `${doc.subject || 'Client Proposal'} | Client View`
       : 'ThaiFex Sales Proposal Studio';
   }, [doc.subject, route.isClientView]);
+
+  useEffect(() => {
+    return () => {
+      if (pdfPreview?.url) {
+        URL.revokeObjectURL(pdfPreview.url);
+      }
+    };
+  }, [pdfPreview]);
 
   const deliveryPresetSelected = INCOTERMS_PRESETS.includes(doc.deliveryTerms);
   const paymentPresetSelected = PAYMENT_PRESETS.includes(doc.paymentTerms);
@@ -343,28 +345,63 @@ function App() {
     updateDoc('signatureImageDataUrl', dataUrl);
   };
 
-  const handleDownloadPdf = async () => {
+  const replacePdfPreview = (next: { url: string; filename: string } | null) => {
+    setPdfPreview((current) => {
+      if (current?.url) {
+        URL.revokeObjectURL(current.url);
+      }
+      return next;
+    });
+  };
+
+  const buildPdfPreview = async () => {
+    const [{ pdf }, { default: QuotationInvoicePDF }] = await Promise.all([
+      import('@react-pdf/renderer'),
+      import('./components/PDF/QuotationInvoicePDF'),
+    ]);
+    const blob = await pdf(<QuotationInvoicePDF doc={doc} />).toBlob();
+
+    return {
+      url: URL.createObjectURL(blob),
+      filename: `${sanitizeFilename(doc.docNo || doc.subject || 'quotation')}.pdf`,
+    };
+  };
+
+  const handlePreviewPdf = async () => {
     try {
       setIsExporting(true);
       setStatus('');
-      const [{ pdf }, { default: QuotationInvoicePDF }] = await Promise.all([
-        import('@react-pdf/renderer'),
-        import('./components/PDF/QuotationInvoicePDF'),
-      ]);
-      const blob = await pdf(<QuotationInvoicePDF doc={doc} />).toBlob();
-      const blobUrl = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = blobUrl;
-      link.download = `${sanitizeFilename(doc.docNo || doc.subject || 'quotation')}.pdf`;
-      link.click();
-      URL.revokeObjectURL(blobUrl);
-      setStatus('PDF downloaded successfully.');
+      replacePdfPreview(await buildPdfPreview());
+      setStatus('PDF preview is ready. Review it first, then download from the preview panel.');
     } catch (error) {
       console.error(error);
       setStatus('PDF export failed. Check the console for details.');
     } finally {
       setIsExporting(false);
     }
+  };
+
+  const handleDownloadPdf = () => {
+    if (!pdfPreview) return;
+    const link = document.createElement('a');
+    link.href = pdfPreview.url;
+    link.download = pdfPreview.filename;
+    link.click();
+    setStatus('PDF downloaded successfully.');
+  };
+
+  const handleOpenPdfInNewTab = () => {
+    if (!pdfPreview) return;
+    const link = document.createElement('a');
+    link.href = pdfPreview.url;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    link.click();
+    setStatus('PDF preview opened in a new tab.');
+  };
+
+  const handleClosePdfPreview = () => {
+    replacePdfPreview(null);
   };
 
   const handleOpenClientView = () => {
@@ -397,17 +434,6 @@ function App() {
   if (route.isClientView) {
     return (
       <div className="client-shell">
-        <div className="client-toolbar">
-          <a className="btn" href={buildBuilderUrl()}>
-            Back to builder
-          </a>
-          <button className="btn" onClick={() => window.print()}>
-            Print web view
-          </button>
-          <button className="btn primary" onClick={handleDownloadPdf} disabled={isExporting}>
-            {isExporting ? 'Preparing PDF...' : 'Download PDF'}
-          </button>
-        </div>
         <ClientProposalView doc={doc} />
       </div>
     );
@@ -432,8 +458,8 @@ function App() {
           <button className="btn" onClick={handleCopyLink}>
             Copy online link
           </button>
-          <button className="btn primary" onClick={handleDownloadPdf} disabled={isExporting}>
-            {isExporting ? 'Preparing PDF...' : 'Download PDF'}
+          <button className="btn primary" onClick={handlePreviewPdf} disabled={isExporting}>
+            {isExporting ? 'Preparing PDF...' : 'Preview PDF'}
           </button>
           <button className="btn" onClick={handleReset}>
             Reset sample
@@ -843,6 +869,35 @@ function App() {
           </div>
         </div>
       </div>
+
+      {pdfPreview ? (
+        <div className="pdf-preview-overlay">
+          <div className="pdf-preview-dialog">
+            <div className="pdf-preview-bar">
+              <div>
+                <div className="preview-eyebrow">PDF handover file</div>
+                <h2>Preview before download</h2>
+              </div>
+              <div className="hero-actions" style={{ maxWidth: 'none' }}>
+                <button className="btn" onClick={handleClosePdfPreview}>
+                  Close
+                </button>
+                <button className="btn" onClick={handleOpenPdfInNewTab}>
+                  Open in new tab
+                </button>
+                <button className="btn primary" onClick={handleDownloadPdf}>
+                  Download PDF
+                </button>
+              </div>
+            </div>
+            <iframe
+              title="PDF preview"
+              src={pdfPreview.url}
+              className="pdf-preview-frame"
+            />
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
