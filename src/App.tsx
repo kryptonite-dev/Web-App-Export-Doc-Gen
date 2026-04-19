@@ -12,7 +12,7 @@ import {
 import { CommonDoc, Currency, Party } from './types';
 import { todayISO } from './utils';
 
-const STORAGE_KEY = 'thaifex-sales-proposal-draft-v2';
+const STORAGE_KEY = 'thaifex-sales-proposal-draft-v3';
 
 function plusDaysISO(days: number) {
   const current = new Date();
@@ -31,22 +31,22 @@ function createInitialDoc(): CommonDoc {
     validUntil: plusDaysISO(45),
     seller: {
       name: 'FAH LADDA CO., LTD.',
-      address: '79/1 Moo 1\nBangkok, Thailand',
+      address: '79/1 Moo1, Klongtan, Ban Phaeo, Samut Sakhon, 74120, Thailand',
     },
     buyer: {
       name: 'Prospective Buyer',
       address: 'Company / Country\nUpdate after the booth conversation',
     },
     attn: 'Procurement Team',
-    fromPerson: 'Somkid',
-    fromTitle: 'Export Sales Manager',
+    fromPerson: 'Taninnuth Warittarasith (TANIN)',
+    fromTitle: 'Co-Founder',
     website: '',
     contactEmail: '',
     contactPhone: '',
     eventName: 'THAIFEX - ANUGA ASIA 2026',
     eventDates: '26 - 30 May 2026',
     eventLocation: 'IMPACT Muang Thong Thani, Bangkok',
-    boothNo: '',
+    boothNo: 'Hall 9 / Booth CC01',
     introNote:
       'This proposal is prepared for fast review during buyer meetings and clean follow-up after the show.',
     deliveryTerms: INCOTERMS_PRESETS[0],
@@ -83,8 +83,8 @@ function createInitialDoc(): CommonDoc {
     certifications: [],
     closing:
       'Thank you for meeting with us at THAIFEX - ANUGA ASIA 2026. We would be pleased to follow up with samples, specifications, and final commercial confirmation for your market.',
-    signTitle: 'Export Sales Manager',
-    signatureName: 'Somkid',
+    signTitle: 'Co-Founder',
+    signatureName: 'Taninnuth Warittarasith (TANIN)',
     exchangeCurrency: 'USD',
     logoWidthPt: 110,
   };
