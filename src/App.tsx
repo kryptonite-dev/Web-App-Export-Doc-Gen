@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import LineItemsEditor from './components/LineItemsEditor';
+import MiniPriceCalculator from './components/MiniPriceCalculator';
 import LogoUploader from './components/LogoUploader';
 import ClientProposalView from './components/ClientProposalView';
 import { Card, Input, Label, Select, Textarea } from './components/ui';
@@ -40,8 +41,8 @@ function createInitialDoc(): CommonDoc {
     attn: 'Procurement Team',
     fromPerson: 'Taninnuth Warittarasith (TANIN)',
     fromTitle: 'Co-Founder',
-    website: '',
-    contactEmail: '',
+    website: 'https://huqkhuun.com/',
+    contactEmail: 'huqkhuun@gmail.com',
     contactPhone: '',
     eventName: 'THAIFEX - ANUGA ASIA 2026',
     eventDates: '26 - 30 May 2026',
@@ -113,6 +114,8 @@ function hydrateDoc(source?: Partial<CommonDoc> | null): CommonDoc {
       ...base.buyer,
       ...(source.buyer || {}),
     },
+    website: source.website?.trim() ? source.website : base.website,
+    contactEmail: source.contactEmail?.trim() ? source.contactEmail : base.contactEmail,
     items:
       source.items && source.items.length > 0
         ? source.items.map((item) => ({
@@ -729,6 +732,8 @@ function App() {
 
           <Card title="Products and buyer-facing proof">
             <div className="grid" style={{ gap: 16 }}>
+              <MiniPriceCalculator fxRate={doc.fxRate} />
+
               <LineItemsEditor
                 items={doc.items}
                 onChange={(items) => updateDoc('items', items)}

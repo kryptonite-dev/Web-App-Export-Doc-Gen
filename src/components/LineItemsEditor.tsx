@@ -1,8 +1,19 @@
-// src/components/LineItemsEditor.tsx
 import React from 'react';
-import { LineItem, Currency } from '../types';
-import { Label, Input, Select } from './ui';
-import { LINE_ITEM_UNIT_PRESETS, UNIT_CUSTOM_LABEL } from '../constants';
+import { Currency, LineItem } from '../types';
+import { Input, Label, Select, Textarea } from './ui';
+import {
+  GOODS_DESCRIPTION_CUSTOM_LABEL,
+  GOODS_DESCRIPTION_PRESETS,
+  LINE_ITEM_UNIT_PRESETS,
+  UNIT_CUSTOM_LABEL,
+} from '../constants';
+
+const CURRENCY_OPTIONS = ['USD', 'THB', 'EUR', 'AED'];
+
+const isPresetDescription = (description: string) =>
+  GOODS_DESCRIPTION_PRESETS.includes(description);
+
+const isPresetUnit = (unit: string) => LINE_ITEM_UNIT_PRESETS.includes(unit);
 
 export default function LineItemsEditor({
   items,
@@ -25,7 +36,7 @@ export default function LineItemsEditor({
     onChange([
       ...items,
       {
-        description: '',
+        description: GOODS_DESCRIPTION_PRESETS[1],
         unit: 'CTN',
         qty: 0,
         unitPrice: { currency, value: 0 },
@@ -35,125 +46,192 @@ export default function LineItemsEditor({
   const remove = (idx: number) => onChange(items.filter((_, i) => i !== idx));
 
   return (
-    <div className="grid" style={{ gap: 12 }}>
-      <div className="row" style={{ justifyContent: 'space-between' }}>
-        <Label>รายการสินค้า / Line Items</Label>
-        <div className="row" style={{ fontSize: 12 }}>
-          <span>Currency:&nbsp;</span>
+    <div className="grid" style={{ gap: 16 }}>
+      <div
+        className="row"
+        style={{ justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' }}
+      >
+        <div className="grid" style={{ gap: 4 }}>
+          <Label>รายการสินค้า / Line Items</Label>
+          <div className="muted" style={{ fontSize: 12 }}>
+            Choose a preset to move faster, then fine-tune the exact wording below.
+          </div>
+        </div>
+
+        <div className="grid" style={{ gap: 6, minWidth: 120 }}>
+          <Label>Currency</Label>
           <select
             value={currency}
-            onChange={(e) => onCurrency(e.target.value)}
+            onChange={(event) => onCurrency(event.target.value)}
             className="input"
-            style={{ width: 100 }}
           >
-            {['USD', 'THB', 'EUR', 'AED'].map((c) => (
-              <option key={c} value={c}>
-                {c}
+            {CURRENCY_OPTIONS.map((option) => (
+              <option key={option} value={option}>
+                {option}
               </option>
             ))}
           </select>
         </div>
       </div>
 
-      {/* header */}
-      <div className="row muted" style={{ fontWeight: 600 }}>
-        <div style={{ flex: 5 }}>DESCRIPTION OF GOODS</div>
-        <div style={{ flex: 2 }}>UNIT</div>
-        <div style={{ flex: 2, textAlign: 'right' }}>QTY</div>
-        <div style={{ flex: 2, textAlign: 'right' }}>UNIT PRICE</div>
-        <div style={{ width: 28 }} />
-      </div>
+      <div className="grid" style={{ gap: 12 }}>
+        {items.map((item, index) => {
+          const description = item.description || '';
+          const unit = item.unit || '';
+          const descriptionSelectValue = isPresetDescription(description)
+            ? description
+            : GOODS_DESCRIPTION_CUSTOM_LABEL;
+          const unitSelectValue = isPresetUnit(unit) ? unit : UNIT_CUSTOM_LABEL;
 
-      {items.map((it, i) => {
-        const unit = it.unit || 'CTN';
-        const isPreset = LINE_ITEM_UNIT_PRESETS.includes(unit);
-        const selectValue = isPreset ? unit : UNIT_CUSTOM_LABEL;
-
-        return (
-          <div key={i} className="row" style={{ alignItems: 'flex-start', gap: 8 }}>
-            {/* DESCRIPTION */}
-            <Input
-              style={{ flex: 5 }}
-              placeholder="e.g., Coconut Blossom Juice 250 ml (24 bottles/ctn)"
-              value={it.description}
-              onChange={(e) => update(i, { description: e.target.value })}
-            />
-
-            {/* UNIT: dropdown + (custom เมื่อเลือก Custom) */}
+          return (
             <div
+              key={index}
               style={{
-                flex: 2,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 4,
+                border: '1px solid rgba(21, 37, 56, 0.1)',
+                borderRadius: 22,
+                padding: 16,
+                background: 'rgba(255, 255, 255, 0.78)',
+                boxShadow: '0 14px 28px rgba(17, 31, 47, 0.06)',
               }}
             >
-              <Select
-                value={selectValue}
-                onChange={(v) => {
-                  if (v === UNIT_CUSTOM_LABEL) {
-                    // สลับไปโหมด custom → unit เก็บเป็น string ของเราเอง
-                    update(i, {
-                      unit: isPreset ? '' : unit,
-                    });
-                  } else {
-                    update(i, { unit: v });
-                  }
-                }}
-                options={[...LINE_ITEM_UNIT_PRESETS, UNIT_CUSTOM_LABEL]}
-                placeholder="Unit"
-              />
+              <div
+                className="row"
+                style={{ justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}
+              >
+                <div className="grid" style={{ gap: 4 }}>
+                  <div className="label">Line {index + 1}</div>
+                  <div className="muted" style={{ fontSize: 12 }}>
+                    Product description stays editable even after choosing a preset.
+                  </div>
+                </div>
 
-              {/* แสดงช่องให้พิมพ์เองเฉพาะตอนเป็น custom */}
-              {(!isPreset || selectValue === UNIT_CUSTOM_LABEL) && (
-                <Input
-                  placeholder="พิมพ์หน่วยเอง เช่น TRAY"
-                  value={it.unit || ''}
-                  onChange={(e) => update(i, { unit: e.target.value })}
-                />
-              )}
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={() => remove(index)}
+                  aria-label={`Remove line ${index + 1}`}
+                  style={{
+                    color: '#9a4c3f',
+                    borderColor: 'rgba(178, 75, 61, 0.18)',
+                    background: 'rgba(178, 75, 61, 0.06)',
+                  }}
+                >
+                  Remove
+                </button>
+              </div>
+
+              <div className="grid" style={{ gap: 12, marginTop: 14 }}>
+                <div className="grid" style={{ gap: 6 }}>
+                  <Label>Description template</Label>
+                  <Select
+                    value={descriptionSelectValue}
+                    onChange={(value) => {
+                      if (value === GOODS_DESCRIPTION_CUSTOM_LABEL) {
+                        update(index, {
+                          description: isPresetDescription(description) ? '' : description,
+                        });
+                        return;
+                      }
+                      update(index, { description: value });
+                    }}
+                    options={[...GOODS_DESCRIPTION_PRESETS, GOODS_DESCRIPTION_CUSTOM_LABEL]}
+                    placeholder="Choose a common product"
+                  />
+                </div>
+
+                <div className="grid" style={{ gap: 6 }}>
+                  <Label>Description of goods</Label>
+                  <Textarea
+                    rows={3}
+                    value={description}
+                    onChange={(event) => update(index, { description: event.target.value })}
+                    placeholder="Type the exact product description to show in the proposal and PDF"
+                    style={{ minHeight: 84 }}
+                  />
+                  <div className="muted" style={{ fontSize: 12 }}>
+                    This is the final customer-facing product name.
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    display: 'grid',
+                    gap: 10,
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+                    alignItems: 'start',
+                  }}
+                >
+                  <div className="grid" style={{ gap: 6 }}>
+                    <Label>Unit</Label>
+                    <Select
+                      value={unitSelectValue}
+                      onChange={(value) => {
+                        if (value === UNIT_CUSTOM_LABEL) {
+                          update(index, {
+                            unit: isPresetUnit(unit) ? '' : unit,
+                          });
+                          return;
+                        }
+                        update(index, { unit: value });
+                      }}
+                      options={[...LINE_ITEM_UNIT_PRESETS, UNIT_CUSTOM_LABEL]}
+                      placeholder="Choose unit"
+                    />
+                    {unitSelectValue === UNIT_CUSTOM_LABEL ? (
+                      <Input
+                        value={unit}
+                        onChange={(event) => update(index, { unit: event.target.value })}
+                        placeholder="Custom unit"
+                      />
+                    ) : null}
+                  </div>
+
+                  <div className="grid" style={{ gap: 6 }}>
+                    <Label>Qty</Label>
+                    <Input
+                      type="number"
+                      inputMode="numeric"
+                      value={Number.isFinite(item.qty) ? item.qty : 0}
+                      onChange={(event) =>
+                        update(index, {
+                          qty: Number(event.target.value ?? 0) || 0,
+                        })
+                      }
+                    />
+                  </div>
+
+                  <div className="grid" style={{ gap: 6 }}>
+                    <Label>Unit price</Label>
+                    <Input
+                      type="number"
+                      inputMode="decimal"
+                      value={Number.isFinite(item.unitPrice?.value) ? item.unitPrice.value : 0}
+                      onChange={(event) =>
+                        update(index, {
+                          unitPrice: {
+                            currency,
+                            value: Number(event.target.value ?? 0) || 0,
+                          },
+                        })
+                      }
+                      right={<span style={{ fontSize: 12 }}>{currency}</span>}
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
+          );
+        })}
+      </div>
 
-            {/* QTY */}
-            <Input
-              className="right"
-              style={{ flex: 2 }}
-              type="number"
-              value={Number.isFinite(it.qty) ? it.qty : 0}
-              onChange={(e) =>
-                update(i, {
-                  qty: Number(e.target.value ?? 0) || 0,
-                })
-              }
-            />
-
-            {/* UNIT PRICE */}
-            <Input
-              className="right"
-              style={{ flex: 2 }}
-              type="number"
-              value={Number.isFinite(it.unitPrice?.value) ? it.unitPrice.value : 0}
-              onChange={(e) =>
-                update(i, {
-                  unitPrice: {
-                    currency,
-                    value: Number(e.target.value ?? 0) || 0,
-                  },
-                })
-              }
-              right={<span style={{ fontSize: 12 }}>{currency}</span>}
-            />
-
-            {/* REMOVE */}
-            <button className="btn" onClick={() => remove(i)} aria-label="Remove line">
-              ✕
-            </button>
-          </div>
-        );
-      })}
-
-      <div>
-        <button className="btn primary" onClick={add}>
+      <div
+        className="row"
+        style={{ justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' }}
+      >
+        <div className="muted" style={{ fontSize: 12 }}>
+          Use one card per offer line so the proposal stays readable during live sales meetings.
+        </div>
+        <button type="button" className="btn primary" onClick={add}>
           + Add line
         </button>
       </div>

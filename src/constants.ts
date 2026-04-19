@@ -18,6 +18,12 @@ export const PAYMENT_PRESETS = [
   'LC at sight',
 ];
 
+export const GOODS_DESCRIPTION_PRESETS = [
+  'Coconut Blossom Juice 150 ml (24 bottles / carton)',
+  'Coconut Blossom Juice 250 ml (24 bottles / carton)',
+];
+export const GOODS_DESCRIPTION_CUSTOM_LABEL = 'Custom';
+
 // หน่วยมาตรฐานทั้งระบบ
 export const UNIT_PRESETS_BASE = ['CTN', 'BAG', 'PCS', 'FCL 20ft', 'FCL 40ft'];
 export const UNIT_CUSTOM_LABEL = 'Custom';
