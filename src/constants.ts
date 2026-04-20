@@ -25,7 +25,7 @@ export const GOODS_DESCRIPTION_PRESETS = [
 export const GOODS_DESCRIPTION_CUSTOM_LABEL = 'Custom';
 
 // หน่วยมาตรฐานทั้งระบบ
-export const UNIT_PRESETS_BASE = ['CTN', 'BAG', 'PCS', 'FCL 20ft', 'FCL 40ft'];
+export const UNIT_PRESETS_BASE = ['CTN', 'PALLET', '20FCL', '40FCL', 'BAG', 'PCS'];
 export const UNIT_CUSTOM_LABEL = 'Custom';
 
 export const MIN_QTY_UNIT_PRESETS = UNIT_PRESETS_BASE;

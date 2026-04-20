@@ -5,6 +5,7 @@ import LogoUploader from './components/LogoUploader';
 import ClientProposalView from './components/ClientProposalView';
 import { Card, Input, Label, Select, Textarea } from './components/ui';
 import {
+  GOODS_DESCRIPTION_PRESETS,
   INCOTERMS_PRESETS,
   MIN_QTY_UNIT_PRESETS,
   PAYMENT_PRESETS,
@@ -14,8 +15,11 @@ import { CommonDoc, Currency, Party } from './types';
 import { todayISO } from './utils';
 
 const STORAGE_KEY = 'thaifex-sales-proposal-draft-v3';
-const DEFAULT_SUBJECT = 'Quotation for Coconut Blossom Juice 250 ml';
-const LEGACY_SUBJECT = 'Buyer-ready quotation for Coconut Blossom Juice 250 ml';
+const DEFAULT_SUBJECT = 'Quotation for Coconut Blossom Juice 150 ml';
+const LEGACY_SUBJECTS = [
+  'Buyer-ready quotation for Coconut Blossom Juice 250 ml',
+  'Quotation for Coconut Blossom Juice 250 ml',
+];
 const DEFAULT_PRESENTER = 'Taninnuth Warittarasith';
 const LEGACY_PRESENTERS = [
   'Taninnuth Warittarasith (Tanin)',
@@ -23,6 +27,35 @@ const LEGACY_PRESENTERS = [
 ];
 const LEGACY_INTRO_NOTE =
   'This proposal is prepared for fast review during buyer meetings and clean follow-up after the show.';
+const DEFAULT_LOAD_REFERENCE =
+  '1 PALLET = 128 CTN · 20FCL = 2700 CTN · 40FCL = 3390 CTN';
+
+function createDefaultItems(): CommonDoc['items'] {
+  return [
+    {
+      description: GOODS_DESCRIPTION_PRESETS[0],
+      unit: 'CTN',
+      qty: 256,
+      unitPrice: { currency: 'USD', value: 9.8 },
+    },
+  ];
+}
+
+function isLegacyDefaultItems(items?: CommonDoc['items']) {
+  if (!items || items.length !== 2) return false;
+  return (
+    items[0]?.description === 'Coconut Blossom Juice 250 ml (24 bottles / carton)' &&
+    items[0]?.unit === 'CTN' &&
+    items[0]?.qty === 400 &&
+    items[0]?.unitPrice?.currency === 'USD' &&
+    items[0]?.unitPrice?.value === 9.8 &&
+    items[1]?.description === 'Private label option with bilingual packaging support' &&
+    items[1]?.unit === 'CTN' &&
+    items[1]?.qty === 400 &&
+    items[1]?.unitPrice?.currency === 'USD' &&
+    items[1]?.unitPrice?.value === 10.6
+  );
+}
 
 function plusDaysISO(days: number) {
   const current = new Date();
@@ -63,26 +96,13 @@ function createInitialDoc(): CommonDoc {
     deliveryTerms: INCOTERMS_PRESETS[0],
     brand: 'Coconut Blossom Collection',
     minOrderQty: {
-      value: 400,
+      value: 256,
       unit: 'CTN',
     },
     paymentTerms: PAYMENT_PRESETS[0],
     leadTime: '30-45 days after artwork confirmation',
     fxRate: 34,
-    items: [
-      {
-        description: 'Coconut Blossom Juice 250 ml (24 bottles / carton)',
-        unit: 'CTN',
-        qty: 400,
-        unitPrice: { currency: 'USD', value: 9.8 },
-      },
-      {
-        description: 'Private label option with bilingual packaging support',
-        unit: 'CTN',
-        qty: 400,
-        unitPrice: { currency: 'USD', value: 10.6 },
-      },
-    ],
+    items: createDefaultItems(),
     notes: [
       'Quoted prices are indicative for THAIFEX meetings and subject to final packaging and destination review.',
     ],
@@ -115,7 +135,9 @@ function hydrateDoc(source?: Partial<CommonDoc> | null): CommonDoc {
   if (!source) return base;
 
   const normalizedSubject =
-    source.subject === LEGACY_SUBJECT ? DEFAULT_SUBJECT : source.subject;
+    source.subject && LEGACY_SUBJECTS.includes(source.subject)
+      ? DEFAULT_SUBJECT
+      : source.subject;
   const normalizedPresenter =
     source.fromPerson && LEGACY_PRESENTERS.includes(source.fromPerson)
       ? DEFAULT_PRESENTER
@@ -126,6 +148,12 @@ function hydrateDoc(source?: Partial<CommonDoc> | null): CommonDoc {
       : source.signatureName;
   const normalizedIntroNote =
     source.introNote === LEGACY_INTRO_NOTE ? '' : source.introNote;
+
+  const normalizedMinOrderQty =
+    source.minOrderQty?.value === 400 && source.minOrderQty?.unit === 'CTN'
+      ? base.minOrderQty
+      : source.minOrderQty;
+  const normalizedItems = isLegacyDefaultItems(source.items) ? base.items : source.items;
 
   return {
     ...base,
@@ -153,8 +181,8 @@ function hydrateDoc(source?: Partial<CommonDoc> | null): CommonDoc {
     website: source.website?.trim() ? source.website : base.website,
     contactEmail: source.contactEmail?.trim() ? source.contactEmail : base.contactEmail,
     items:
-      source.items && source.items.length > 0
-        ? source.items.map((item) => ({
+      normalizedItems && normalizedItems.length > 0
+        ? normalizedItems.map((item) => ({
             description: item.description || '',
             unit: item.unit || 'CTN',
             qty: item.qty || 0,
@@ -167,7 +195,7 @@ function hydrateDoc(source?: Partial<CommonDoc> | null): CommonDoc {
     notes: source.notes || base.notes,
     productHighlights: source.productHighlights || base.productHighlights,
     certifications: source.certifications || base.certifications,
-    minOrderQty: source.minOrderQty || base.minOrderQty,
+    minOrderQty: normalizedMinOrderQty || base.minOrderQty,
   };
 }
 
@@ -971,6 +999,11 @@ function App() {
                     placeholder="Custom MOQ unit"
                   />
                 ) : null}
+              </div>
+              <div className="grid full-span">
+                <div className="muted" style={{ fontSize: 12 }}>
+                  Coconut Blossom Juice 150 ml reference: {DEFAULT_LOAD_REFERENCE}
+                </div>
               </div>
             </div>
           </Card>

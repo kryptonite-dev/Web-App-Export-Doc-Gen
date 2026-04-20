@@ -36,7 +36,7 @@ export default function LineItemsEditor({
     onChange([
       ...items,
       {
-        description: GOODS_DESCRIPTION_PRESETS[1],
+        description: GOODS_DESCRIPTION_PRESETS[0],
         unit: 'CTN',
         qty: 0,
         unitPrice: { currency, value: 0 },
