@@ -3,6 +3,7 @@ import LineItemsEditor from './components/LineItemsEditor';
 import MiniPriceCalculator from './components/MiniPriceCalculator';
 import LogoUploader from './components/LogoUploader';
 import ClientProposalView from './components/ClientProposalView';
+import LoadingCalculatorPage from './components/LoadingCalculatorPage';
 import { Card, Input, Label, Select, Textarea } from './components/ui';
 import {
   GOODS_DESCRIPTION_PRESETS,
@@ -13,6 +14,8 @@ import {
 } from './constants';
 import { CommonDoc, Currency, Party } from './types';
 import { todayISO } from './utils';
+
+type AppPage = 'proposal' | 'loading';
 
 const STORAGE_KEY = 'thaifex-sales-proposal-draft-v3';
 const DEFAULT_SUBJECT = 'Quotation for Coconut Blossom Juice 150 ml';
@@ -236,9 +239,11 @@ function decodeSharePayload(value: string | null) {
 
 function getRouteContext() {
   const params = new URLSearchParams(window.location.search);
+  const page: AppPage = params.get('page') === 'loading' ? 'loading' : 'proposal';
   return {
     isClientView: params.get('view') === 'client',
     sharedDoc: decodeSharePayload(params.get('payload')),
+    page,
   };
 }
 
@@ -345,6 +350,8 @@ function triggerDownload(blob: Blob, filename: string) {
 
 function App() {
   const route = getRouteContext();
+  const [page, setPage] = useState<AppPage>(route.page);
+  const [loadingCalculatorKey, setLoadingCalculatorKey] = useState(0);
   const [doc, setDoc] = useState<CommonDoc>(() => {
     if (route.sharedDoc) return hydrateDoc(route.sharedDoc);
     return hydrateDoc(safeParseDraft(localStorage.getItem(STORAGE_KEY)));
@@ -360,8 +367,10 @@ function App() {
   useEffect(() => {
     document.title = route.isClientView
       ? `${doc.subject || 'Client Proposal'} | Client View`
-      : 'ThaiFex Sales Proposal Studio';
-  }, [doc.subject, route.isClientView]);
+      : page === 'loading'
+        ? 'Export Loading Calculator'
+        : 'ThaiFex Sales Proposal Studio';
+  }, [doc.subject, page, route.isClientView]);
 
   const deliveryPresetSelected = INCOTERMS_PRESETS.includes(doc.deliveryTerms);
   const paymentPresetSelected = PAYMENT_PRESETS.includes(doc.paymentTerms);
@@ -639,6 +648,17 @@ function App() {
     window.open(buildClientUrl(doc, false), '_blank', 'noopener,noreferrer');
   };
 
+  const handlePageChange = (next: AppPage) => {
+    setPage(next);
+    const url = new URL(window.location.href);
+    if (next === 'loading') {
+      url.searchParams.set('page', 'loading');
+    } else {
+      url.searchParams.delete('page');
+    }
+    window.history.replaceState({}, '', url.toString());
+  };
+
   const handleCopyLink = async () => {
     const shareUrl = buildClientUrl(doc, true);
     try {
@@ -673,38 +693,71 @@ function App() {
     <div className="app-shell">
       <header className="app-hero">
         <div>
-          <div className="app-kicker">ThaiFex sales workflow</div>
-          <h1>ThaiFex Sales Proposal Studio</h1>
+          <div className="page-switch">
+            <button
+              className={`btn ${page === 'proposal' ? 'primary' : ''}`}
+              onClick={() => handlePageChange('proposal')}
+            >
+              Proposal studio
+            </button>
+            <button
+              className={`btn ${page === 'loading' ? 'primary' : ''}`}
+              onClick={() => handlePageChange('loading')}
+            >
+              Loading calculator
+            </button>
+          </div>
+          <div className="app-kicker">
+            {page === 'loading' ? 'Export loading reference' : 'ThaiFex sales workflow'}
+          </div>
+          <h1>
+            {page === 'loading' ? 'Coconut Blossom Export Loading Calculator' : 'ThaiFex Sales Proposal Studio'}
+          </h1>
           <p>
-            Prepare one buyer-ready quotation, open it as an online proposal on a second
-            screen, and export the same content to PDF without reformatting.
+            {page === 'loading'
+              ? 'Check cartons per pallet, palletized loading, and loose-load capacity in a separate customer-facing calculator during container discussions.'
+              : 'Prepare one buyer-ready quotation, open it as an online proposal on a second screen, and export the same content to PDF without reformatting.'}
           </p>
         </div>
 
         <div className="hero-actions">
-          <button className="btn" onClick={handleSaveProposal}>
-            Save proposal
-          </button>
-          <button className="btn" onClick={handleOpenClientView}>
-            Open client view
-          </button>
-          <button className="btn" onClick={handleCopyLink}>
-            Copy online link
-          </button>
-          <button className="btn primary" onClick={handleOpenPdf} disabled={isExporting}>
-            {isExporting ? 'Preparing PDF...' : 'Open PDF'}
-          </button>
-          <button className="btn" onClick={handleReset}>
-            Reset sample
-          </button>
+          {page === 'proposal' ? (
+            <>
+              <button className="btn" onClick={handleSaveProposal}>
+                Save proposal
+              </button>
+              <button className="btn" onClick={handleOpenClientView}>
+                Open client view
+              </button>
+              <button className="btn" onClick={handleCopyLink}>
+                Copy online link
+              </button>
+              <button className="btn primary" onClick={handleOpenPdf} disabled={isExporting}>
+                {isExporting ? 'Preparing PDF...' : 'Open PDF'}
+              </button>
+              <button className="btn" onClick={handleReset}>
+                Reset sample
+              </button>
+            </>
+          ) : (
+            <>
+              <button className="btn" onClick={() => handlePageChange('proposal')}>
+                Back to proposal
+              </button>
+              <button className="btn" onClick={() => setLoadingCalculatorKey((current) => current + 1)}>
+                Reset calculator
+              </button>
+            </>
+          )}
         </div>
       </header>
 
       {status ? <div className="status-banner">{status}</div> : null}
 
-      <div className="workspace">
-        <div className="editor-column">
-          <Card title="ThaiFex readiness">
+      {page === 'proposal' ? (
+        <div className="workspace">
+          <div className="editor-column">
+            <Card title="ThaiFex readiness">
             <div className="score-row">
               <div>
                 <div className="score-label">Readiness score</div>
@@ -1104,23 +1157,26 @@ function App() {
               </div>
             </div>
           </Card>
-        </div>
+          </div>
 
-        <div className="preview-column">
-          <div className="preview-shell">
-            <div className="preview-head">
-              <div>
-                <div className="preview-eyebrow">Live client view</div>
-                <h2>Online proposal preview</h2>
+          <div className="preview-column">
+            <div className="preview-shell">
+              <div className="preview-head">
+                <div>
+                  <div className="preview-eyebrow">Live client view</div>
+                  <h2>Online proposal preview</h2>
+                </div>
+                <button className="btn" onClick={handleOpenClientView}>
+                  Pop out
+                </button>
               </div>
-              <button className="btn" onClick={handleOpenClientView}>
-                Pop out
-              </button>
+              <ClientProposalView doc={doc} embedded />
             </div>
-            <ClientProposalView doc={doc} embedded />
           </div>
         </div>
-      </div>
+      ) : (
+        <LoadingCalculatorPage key={loadingCalculatorKey} />
+      )}
     </div>
   );
 }
