@@ -17,7 +17,10 @@ const STORAGE_KEY = 'thaifex-sales-proposal-draft-v3';
 const DEFAULT_SUBJECT = 'Quotation for Coconut Blossom Juice 250 ml';
 const LEGACY_SUBJECT = 'Buyer-ready quotation for Coconut Blossom Juice 250 ml';
 const DEFAULT_PRESENTER = 'Taninnuth Warittarasith';
-const LEGACY_PRESENTER = 'Taninnuth Warittarasith';
+const LEGACY_PRESENTERS = [
+  'Taninnuth Warittarasith (Tanin)',
+  'Taninnuth Warittarasith (TANIN)',
+];
 const LEGACY_INTRO_NOTE =
   'This proposal is prepared for fast review during buyer meetings and clean follow-up after the show.';
 
@@ -114,9 +117,13 @@ function hydrateDoc(source?: Partial<CommonDoc> | null): CommonDoc {
   const normalizedSubject =
     source.subject === LEGACY_SUBJECT ? DEFAULT_SUBJECT : source.subject;
   const normalizedPresenter =
-    source.fromPerson === LEGACY_PRESENTER ? DEFAULT_PRESENTER : source.fromPerson;
+    source.fromPerson && LEGACY_PRESENTERS.includes(source.fromPerson)
+      ? DEFAULT_PRESENTER
+      : source.fromPerson;
   const normalizedSignatureName =
-    source.signatureName === LEGACY_PRESENTER ? DEFAULT_PRESENTER : source.signatureName;
+    source.signatureName && LEGACY_PRESENTERS.includes(source.signatureName)
+      ? DEFAULT_PRESENTER
+      : source.signatureName;
   const normalizedIntroNote =
     source.introNote === LEGACY_INTRO_NOTE ? '' : source.introNote;
 
