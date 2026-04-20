@@ -29,6 +29,13 @@ type ContainerSpec = {
   payload: number;
 };
 
+type OrderUnitOption = {
+  id: string;
+  label: string;
+  note: string;
+  ctnPerUnit: number;
+};
+
 const PALLETS: PalletSpec[] = [
   {
     id: 'upr_wood_1000x1200',
@@ -128,6 +135,17 @@ function dimensionalMax(
   );
 }
 
+function roundToTwo(value: number) {
+  return Math.round(value * 100) / 100;
+}
+
+function copyNumber(value: number) {
+  const rounded = roundToTwo(value);
+  return Number.isInteger(rounded)
+    ? String(rounded)
+    : rounded.toFixed(2).replace(/\.?0+$/, '');
+}
+
 export default function LoadingCalculatorPage() {
   const [cartonLength, setCartonLength] = useState(306);
   const [cartonWidth, setCartonWidth] = useState(215);
@@ -136,6 +154,9 @@ export default function LoadingCalculatorPage() {
   const [bottlesPerCarton, setBottlesPerCarton] = useState(24);
   const [palletId, setPalletId] = useState('chep_perimeter_1200x1000');
   const [patternId, setPatternId] = useState('column');
+  const [orderQuantity, setOrderQuantity] = useState('2');
+  const [orderUnitId, setOrderUnitId] = useState('PALLET');
+  const [orderStatus, setOrderStatus] = useState('');
 
   const pallet = PALLETS.find((item) => item.id === palletId) || PALLETS[0];
   const pattern = PATTERNS.find((item) => item.id === patternId) || PATTERNS[0];
@@ -213,6 +234,88 @@ export default function LoadingCalculatorPage() {
 
   const loose20 = calculation.loose.find((item) => item.container === '20FCL');
   const loose40 = calculation.loose.find((item) => item.container === '40FCL');
+
+  const orderUnits = useMemo<OrderUnitOption[]>(() => {
+    const palletized20 = calculation.palletized.find((item) => item.container === '20FCL');
+    const palletized40 = calculation.palletized.find((item) => item.container === '40FCL');
+    const palletized40hc = calculation.palletized.find((item) => item.container === 'HC40FCL');
+    const loose40hc = calculation.loose.find((item) => item.container === 'HC40FCL');
+
+    return [
+      {
+        id: 'CTN',
+        label: 'CTN',
+        note: 'Direct carton quantity for quotation.',
+        ctnPerUnit: 1,
+      },
+      {
+        id: 'PALLET',
+        label: 'Pallet',
+        note: `1 pallet = ${fmt(calculation.cartonsPerPallet, 0)} CTN with the current pallet and stacking setup.`,
+        ctnPerUnit: calculation.cartonsPerPallet,
+      },
+      {
+        id: '20FCL_PALLETIZED',
+        label: '20FCL (Palletized)',
+        note: `1 × 20FCL palletized = ${fmt(palletized20?.cartonsPerContainer || 0, 0)} CTN.`,
+        ctnPerUnit: palletized20?.cartonsPerContainer || 0,
+      },
+      {
+        id: '20FCL_LOOSE',
+        label: '20FCL (Loose load)',
+        note: `1 × 20FCL loose load = ${fmt(loose20?.usable || 0, 0)} CTN.`,
+        ctnPerUnit: loose20?.usable || 0,
+      },
+      {
+        id: '40FCL_PALLETIZED',
+        label: '40FCL (Palletized)',
+        note: `1 × 40FCL palletized = ${fmt(palletized40?.cartonsPerContainer || 0, 0)} CTN.`,
+        ctnPerUnit: palletized40?.cartonsPerContainer || 0,
+      },
+      {
+        id: '40FCL_LOOSE',
+        label: '40FCL (Loose load)',
+        note: `1 × 40FCL loose load = ${fmt(loose40?.usable || 0, 0)} CTN.`,
+        ctnPerUnit: loose40?.usable || 0,
+      },
+      {
+        id: 'HC40FCL_PALLETIZED',
+        label: 'HC40FCL (Palletized)',
+        note: `1 × HC40FCL palletized = ${fmt(palletized40hc?.cartonsPerContainer || 0, 0)} CTN.`,
+        ctnPerUnit: palletized40hc?.cartonsPerContainer || 0,
+      },
+      {
+        id: 'HC40FCL_LOOSE',
+        label: 'HC40FCL (Loose load)',
+        note: `1 × HC40FCL loose load = ${fmt(loose40hc?.usable || 0, 0)} CTN.`,
+        ctnPerUnit: loose40hc?.usable || 0,
+      },
+    ];
+  }, [calculation.cartonsPerPallet, calculation.loose, calculation.palletized, loose20, loose40]);
+
+  const selectedOrderUnit =
+    orderUnits.find((item) => item.id === orderUnitId) || orderUnits[0];
+  const requestedUnits = Number(orderQuantity) || 0;
+  const convertedCtn = roundToTwo(requestedUnits * selectedOrderUnit.ctnPerUnit);
+  const convertedPcs = roundToTwo(convertedCtn * bottlesPerCarton);
+  const convertedCtnDigits = Number.isInteger(convertedCtn) ? 0 : 2;
+  const convertedPcsDigits = Number.isInteger(convertedPcs) ? 0 : 2;
+
+  const copyOrderCtn = async () => {
+    const text = copyNumber(convertedCtn);
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        window.prompt('Copy CTN total', text);
+      }
+      setOrderStatus(`CTN copied for quotation: ${text}`);
+    } catch (error) {
+      console.error(error);
+      setOrderStatus('Unable to copy CTN automatically.');
+      window.prompt('Copy CTN total', text);
+    }
+  };
 
   return (
     <div className="calc-page">
@@ -336,6 +439,93 @@ export default function LoadingCalculatorPage() {
             40FCL loose = <strong>{fmt(loose40?.usable || 0, 0)} CTN</strong>
             {' / '}
             <strong>{fmt((loose40?.usable || 0) * bottlesPerCarton, 0)} PCS</strong>
+          </div>
+
+          <div className="calc-converter">
+            <div
+              className="row"
+              style={{ justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap' }}
+            >
+              <div className="grid" style={{ gap: 4 }}>
+                <div className="label">Order Quantity Converter</div>
+                <div className="muted" style={{ fontSize: 12 }}>
+                  Convert pallet or container quantity into total CTN and PCS, then copy the CTN into quotation.
+                </div>
+              </div>
+            </div>
+
+            <div className="calc-converter-grid">
+              <div className="grid" style={{ gap: 6 }}>
+                <Label>Requested quantity</Label>
+                <Input
+                  type="number"
+                  inputMode="decimal"
+                  step="0.01"
+                  value={orderQuantity}
+                  onChange={(event) => {
+                    setOrderQuantity(event.target.value);
+                    setOrderStatus('');
+                  }}
+                  placeholder="2"
+                />
+              </div>
+
+              <div className="grid" style={{ gap: 6 }}>
+                <Label>Unit</Label>
+                <select
+                  className="input"
+                  value={selectedOrderUnit.id}
+                  onChange={(event) => {
+                    setOrderUnitId(event.target.value);
+                    setOrderStatus('');
+                  }}
+                >
+                  {orderUnits.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="muted" style={{ marginTop: 10, fontSize: 12 }}>
+              {selectedOrderUnit.note}
+            </div>
+
+            <div className="calc-result-grid">
+              <div className="calc-result-card calc-result-card-accent">
+                <div className="calc-kpi-label">Total CTN for quotation</div>
+                <div className="calc-result-value">{fmt(convertedCtn, convertedCtnDigits)}</div>
+                <div className="muted" style={{ fontSize: 12 }}>
+                  Paste this number into the quotation quantity field.
+                </div>
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={copyOrderCtn}
+                  style={{
+                    marginTop: 12,
+                    alignSelf: 'flex-start',
+                    background: 'rgba(21, 37, 56, 0.06)',
+                    borderColor: 'rgba(21, 37, 56, 0.08)',
+                    color: '#152538',
+                  }}
+                >
+                  Copy CTN
+                </button>
+              </div>
+
+              <div className="calc-result-card">
+                <div className="calc-kpi-label">Total PCS</div>
+                <div className="calc-result-value">{fmt(convertedPcs, convertedPcsDigits)}</div>
+                <div className="muted" style={{ fontSize: 12 }}>
+                  Based on {fmt(bottlesPerCarton, 0)} bottles per carton.
+                </div>
+              </div>
+            </div>
+
+            {orderStatus ? <div className="calc-inline-status">{orderStatus}</div> : null}
           </div>
 
           <div className="calc-note">
