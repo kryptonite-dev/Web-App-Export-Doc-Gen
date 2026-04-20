@@ -129,9 +129,9 @@ function dimensionalMax(
 }
 
 export default function LoadingCalculatorPage() {
-  const [cartonLength, setCartonLength] = useState(300);
-  const [cartonWidth, setCartonWidth] = useState(207);
-  const [cartonHeight, setCartonHeight] = useState(180);
+  const [cartonLength, setCartonLength] = useState(306);
+  const [cartonWidth, setCartonWidth] = useState(215);
+  const [cartonHeight, setCartonHeight] = useState(195);
   const [cartonWeight, setCartonWeight] = useState(8.5);
   const [bottlesPerCarton, setBottlesPerCarton] = useState(24);
   const [palletId, setPalletId] = useState('chep_perimeter_1200x1000');
@@ -326,10 +326,16 @@ export default function LoadingCalculatorPage() {
 
           <div className="calc-note calc-note-accent">
             Current quick answer: 1 pallet = <strong>{fmt(calculation.cartonsPerPallet, 0)} CTN</strong>
+            {' / '}
+            <strong>{fmt(calculation.cartonsPerPallet * bottlesPerCarton, 0)} PCS</strong>
             {' · '}
             20FCL loose = <strong>{fmt(loose20?.usable || 0, 0)} CTN</strong>
+            {' / '}
+            <strong>{fmt((loose20?.usable || 0) * bottlesPerCarton, 0)} PCS</strong>
             {' · '}
             40FCL loose = <strong>{fmt(loose40?.usable || 0, 0)} CTN</strong>
+            {' / '}
+            <strong>{fmt((loose40?.usable || 0) * bottlesPerCarton, 0)} PCS</strong>
           </div>
 
           <div className="calc-note">
@@ -424,7 +430,7 @@ export default function LoadingCalculatorPage() {
             <div><strong>Customer:</strong> บริษัท ฟ้าลัดดา จำกัด</div>
             <div><strong>Product:</strong> กล่องใส่ขวดแก้ว 24 ขวด</div>
             <div><strong>Doc No.:</strong> FM-LAB-006</div>
-            <div><strong>Box dimensions:</strong> W 20.70 × L 30.00 × H 18.00 cm</div>
+            <div><strong>Box dimensions:</strong> W 21.50 × L 30.60 × H 19.50 cm</div>
             <div><strong>Board / flute:</strong> KA125/CS120/CS120/CS120/KA125 / BC</div>
             <div><strong>Empty carton weight:</strong> 275.85 ± 5% g/carton</div>
           </div>

@@ -30,8 +30,6 @@ const LEGACY_PRESENTERS = [
 ];
 const LEGACY_INTRO_NOTE =
   'This proposal is prepared for fast review during buyer meetings and clean follow-up after the show.';
-const DEFAULT_LOAD_REFERENCE =
-  '1 PALLET = 128 CTN · 20FCL = 2700 CTN · 40FCL = 3390 CTN';
 
 function createDefaultItems(): CommonDoc['items'] {
   return [
@@ -1052,11 +1050,6 @@ function App() {
                     placeholder="Custom MOQ unit"
                   />
                 ) : null}
-              </div>
-              <div className="grid full-span">
-                <div className="muted" style={{ fontSize: 12 }}>
-                  Coconut Blossom Juice 150 ml reference: {DEFAULT_LOAD_REFERENCE}
-                </div>
               </div>
             </div>
           </Card>
