@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { Check, Copy } from 'lucide-react';
 import LineItemsEditor from './components/LineItemsEditor';
 import MiniPriceCalculator from './components/MiniPriceCalculator';
 import LogoUploader from './components/LogoUploader';
@@ -16,6 +17,16 @@ import { CommonDoc, Currency, Party } from './types';
 import { todayISO } from './utils';
 
 type AppPage = 'proposal' | 'loading';
+type StatusState =
+  | {
+      text: string;
+    }
+  | {
+      lead: string;
+      copyValue: string;
+      tail: string;
+      copied?: boolean;
+    };
 
 const STORAGE_KEY = 'thaifex-sales-proposal-draft-v3';
 const DEFAULT_SUBJECT = 'Quotation for Coconut Blossom Juice 150 ml';
@@ -330,9 +341,34 @@ function formatFilenameTimestamp(date: Date) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}_${pad(date.getHours())}-${pad(date.getMinutes())}-${pad(date.getSeconds())}`;
 }
 
+function buildFilenameCtnLabel(doc: CommonDoc) {
+  const totalCtn = doc.items.reduce((sum, item) => {
+    const unit = item.unit?.trim().toUpperCase();
+    return unit === 'CTN' ? sum + (Number(item.qty) || 0) : sum;
+  }, 0);
+
+  if (totalCtn > 0) {
+    const formatted = Number.isInteger(totalCtn)
+      ? String(totalCtn)
+      : totalCtn.toFixed(2).replace(/\.?0+$/, '').replace('.', '-');
+    return `${formatted}ctn`;
+  }
+
+  const fallbackUnit = doc.minOrderQty?.unit?.trim().toUpperCase();
+  if (fallbackUnit === 'CTN' && (doc.minOrderQty?.value || 0) > 0) {
+    const fallbackValue = doc.minOrderQty?.value || 0;
+    const formatted = Number.isInteger(fallbackValue)
+      ? String(fallbackValue)
+      : fallbackValue.toFixed(2).replace(/\.?0+$/, '').replace('.', '-');
+    return `${formatted}ctn`;
+  }
+
+  return 'ctn-unspecified';
+}
+
 function buildFileBaseName(doc: CommonDoc, date = new Date()) {
   const buyerName = doc.buyer.name?.trim() || doc.attn?.trim() || doc.docNo?.trim() || 'proposal';
-  return `${sanitizeFilename(buyerName)}_${formatFilenameTimestamp(date)}`;
+  return `${sanitizeFilename(buyerName)}_${buildFilenameCtnLabel(doc)}_${formatFilenameTimestamp(date)}`;
 }
 
 function triggerDownload(blob: Blob, filename: string) {
@@ -354,7 +390,7 @@ function App() {
     if (route.sharedDoc) return hydrateDoc(route.sharedDoc);
     return hydrateDoc(safeParseDraft(localStorage.getItem(STORAGE_KEY)));
   });
-  const [status, setStatus] = useState('');
+  const [status, setStatus] = useState<StatusState | null>(null);
   const [isExporting, setIsExporting] = useState(false);
 
   useEffect(() => {
@@ -457,6 +493,27 @@ function App() {
     }));
   };
 
+  const showStatus = (text: string) => {
+    setStatus({ text });
+  };
+
+  const handleCopyStatusValue = async () => {
+    if (!status || !('copyValue' in status)) return;
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(status.copyValue);
+      } else {
+        window.prompt('Copy filename', status.copyValue);
+      }
+      setStatus((current) =>
+        current && 'copyValue' in current ? { ...current, copied: true } : current
+      );
+    } catch (error) {
+      console.error(error);
+      window.prompt('Copy filename', status.copyValue);
+    }
+  };
+
   const handleSignatureUpload = async (
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
@@ -485,108 +542,15 @@ function App() {
       }),
     };
     const blob = await pdf(<QuotationInvoicePDF doc={preparedDoc} />).toBlob();
+    const file =
+      typeof File === 'function'
+        ? new File([blob], filename, { type: 'application/pdf' })
+        : blob;
 
     return {
-      url: URL.createObjectURL(blob),
+      url: URL.createObjectURL(file),
       filename,
     };
-  };
-
-  const renderPdfTab = (
-    popup: Window,
-    pdfFile: {
-      url: string;
-      filename: string;
-    }
-  ) => {
-    const popupDocument = popup.document;
-    popupDocument.title = pdfFile.filename;
-    popupDocument.head.innerHTML = `
-      <style>
-        :root { color-scheme: light; }
-        body {
-          margin: 0;
-          font-family: "Avenir Next", "Segoe UI", sans-serif;
-          background: #f5efe4;
-          color: #5b4532;
-        }
-        .pdf-tab {
-          display: grid;
-          grid-template-rows: auto minmax(0, 1fr);
-          height: 100vh;
-        }
-        .pdf-tab-bar {
-          display: flex;
-          justify-content: space-between;
-          gap: 16px;
-          align-items: center;
-          padding: 14px 18px;
-          border-bottom: 1px solid rgba(91, 69, 50, 0.12);
-          background: rgba(255, 250, 242, 0.98);
-        }
-        .pdf-tab-title {
-          font-size: 14px;
-          font-weight: 700;
-        }
-        .pdf-tab-actions {
-          display: flex;
-          gap: 10px;
-          flex-wrap: wrap;
-        }
-        .pdf-tab-actions a {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          padding: 10px 14px;
-          border-radius: 999px;
-          border: 1px solid rgba(91, 69, 50, 0.16);
-          background: #fff9ef;
-          color: #5b4532;
-          text-decoration: none;
-          font-weight: 700;
-        }
-        .pdf-tab-actions a.primary {
-          background: #5b4532;
-          color: #fff9ef;
-          border-color: #5b4532;
-        }
-        .pdf-tab-frame {
-          width: 100%;
-          height: 100%;
-          border: 0;
-          background: #efe7d8;
-        }
-      </style>
-    `;
-    popupDocument.body.innerHTML = `
-      <div class="pdf-tab">
-        <div class="pdf-tab-bar">
-          <div class="pdf-tab-title"></div>
-          <div class="pdf-tab-actions">
-            <a class="primary pdf-download">Download PDF</a>
-            <a class="pdf-open-raw" target="_blank" rel="noopener noreferrer">Open raw PDF</a>
-          </div>
-        </div>
-        <iframe class="pdf-tab-frame" title="PDF preview"></iframe>
-      </div>
-    `;
-
-    const title = popupDocument.querySelector('.pdf-tab-title');
-    if (title) title.textContent = pdfFile.filename;
-
-    const downloadLink = popupDocument.querySelector<HTMLAnchorElement>('.pdf-download');
-    if (downloadLink) {
-      downloadLink.href = pdfFile.url;
-      downloadLink.download = pdfFile.filename;
-    }
-
-    const rawLink = popupDocument.querySelector<HTMLAnchorElement>('.pdf-open-raw');
-    if (rawLink) {
-      rawLink.href = pdfFile.url;
-    }
-
-    const frame = popupDocument.querySelector<HTMLIFrameElement>('.pdf-tab-frame');
-    if (frame) frame.src = pdfFile.url;
   };
 
   const handleSaveProposal = () => {
@@ -600,7 +564,7 @@ function App() {
       new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }),
       filename
     );
-    setStatus(`Proposal data saved as ${filename}.`);
+    showStatus(`Proposal data saved as ${filename}.`);
   };
 
   const handleOpenPdf = async () => {
@@ -613,12 +577,13 @@ function App() {
 
     try {
       setIsExporting(true);
-      setStatus('');
+      setStatus(null);
       const savedAt = new Date();
-      const pdfFile = await buildPdfFile(`${buildFileBaseName(doc, savedAt)}.pdf`);
+      const fileBaseName = buildFileBaseName(doc, savedAt);
+      const pdfFile = await buildPdfFile(`${fileBaseName}.pdf`);
 
       if (popup) {
-        renderPdfTab(popup, pdfFile);
+        popup.location.replace(pdfFile.url);
       } else {
         const link = document.createElement('a');
         link.href = pdfFile.url;
@@ -631,11 +596,16 @@ function App() {
         URL.revokeObjectURL(pdfFile.url);
       }, 10 * 60_000);
 
-      setStatus(`PDF opened in a new tab as ${pdfFile.filename}.`);
+      setStatus({
+        lead: 'PDF opened in a new tab as',
+        copyValue: fileBaseName,
+        tail: '.pdf. Use the browser PDF viewer to download if needed.',
+        copied: false,
+      });
     } catch (error) {
       if (popup) popup.close();
       console.error(error);
-      setStatus('PDF export failed. Check the console for details.');
+      showStatus('PDF export failed. Check the console for details.');
     } finally {
       setIsExporting(false);
     }
@@ -665,10 +635,10 @@ function App() {
       } else {
         window.prompt('Copy this online link', shareUrl);
       }
-      setStatus('Online link copied. Embedded images are omitted to keep the URL shareable.');
+      showStatus('Online link copied. Embedded images are omitted to keep the URL shareable.');
     } catch (error) {
       console.error(error);
-      setStatus('Unable to copy automatically. Use the browser prompt to copy the link.');
+      showStatus('Unable to copy automatically. Use the browser prompt to copy the link.');
       window.prompt('Copy this online link', shareUrl);
     }
   };
@@ -676,7 +646,7 @@ function App() {
   const handleReset = () => {
     const next = createInitialDoc();
     setDoc(next);
-    setStatus('Sample content restored.');
+    showStatus('Sample content restored.');
   };
 
   if (route.isClientView) {
@@ -750,7 +720,27 @@ function App() {
         </div>
       </header>
 
-      {status ? <div className="status-banner">{status}</div> : null}
+      {status ? (
+        <div className="status-banner">
+          {'copyValue' in status ? (
+            <>
+              <span>{status.lead} </span>
+              <button
+                type="button"
+                className={`status-copy-chip ${status.copied ? 'copied' : ''}`}
+                onClick={handleCopyStatusValue}
+                title="Copy filename"
+              >
+                <span>{status.copyValue}</span>
+                {status.copied ? <Check size={14} strokeWidth={2.4} /> : <Copy size={14} strokeWidth={2.1} />}
+              </button>
+              <span>{status.tail}</span>
+            </>
+          ) : (
+            status.text
+          )}
+        </div>
+      ) : null}
 
       {page === 'proposal' ? (
         <div className="workspace">
