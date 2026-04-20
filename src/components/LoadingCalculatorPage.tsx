@@ -459,8 +459,8 @@ export default function LoadingCalculatorPage() {
                 <Label>Requested quantity</Label>
                 <Input
                   type="number"
-                  inputMode="decimal"
-                  step="0.01"
+                  inputMode="numeric"
+                  step="1"
                   value={orderQuantity}
                   onChange={(event) => {
                     setOrderQuantity(event.target.value);
