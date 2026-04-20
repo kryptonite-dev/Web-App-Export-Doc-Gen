@@ -294,6 +294,27 @@ function sanitizeFilename(value: string) {
   );
 }
 
+function formatFilenameTimestamp(date: Date) {
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}_${pad(date.getHours())}-${pad(date.getMinutes())}-${pad(date.getSeconds())}`;
+}
+
+function buildFileBaseName(doc: CommonDoc, date = new Date()) {
+  const buyerName = doc.buyer.name?.trim() || doc.attn?.trim() || doc.docNo?.trim() || 'proposal';
+  return `${sanitizeFilename(buyerName)}_${formatFilenameTimestamp(date)}`;
+}
+
+function triggerDownload(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.click();
+  window.setTimeout(() => {
+    URL.revokeObjectURL(url);
+  }, 60_000);
+}
+
 function App() {
   const route = getRouteContext();
   const [doc, setDoc] = useState<CommonDoc>(() => {
@@ -410,7 +431,7 @@ function App() {
     updateDoc('signatureImageDataUrl', dataUrl);
   };
 
-  const buildPdfFile = async () => {
+  const buildPdfFile = async (filename: string) => {
     const [{ pdf }, { default: QuotationInvoicePDF }] = await Promise.all([
       import('@react-pdf/renderer'),
       import('./components/PDF/QuotationInvoicePDF'),
@@ -432,8 +453,119 @@ function App() {
 
     return {
       url: URL.createObjectURL(blob),
-      filename: `${sanitizeFilename(doc.docNo || doc.subject || 'quotation')}.pdf`,
+      filename,
     };
+  };
+
+  const renderPdfTab = (
+    popup: Window,
+    pdfFile: {
+      url: string;
+      filename: string;
+    }
+  ) => {
+    const popupDocument = popup.document;
+    popupDocument.title = pdfFile.filename;
+    popupDocument.head.innerHTML = `
+      <style>
+        :root { color-scheme: light; }
+        body {
+          margin: 0;
+          font-family: "Avenir Next", "Segoe UI", sans-serif;
+          background: #f5efe4;
+          color: #5b4532;
+        }
+        .pdf-tab {
+          display: grid;
+          grid-template-rows: auto minmax(0, 1fr);
+          height: 100vh;
+        }
+        .pdf-tab-bar {
+          display: flex;
+          justify-content: space-between;
+          gap: 16px;
+          align-items: center;
+          padding: 14px 18px;
+          border-bottom: 1px solid rgba(91, 69, 50, 0.12);
+          background: rgba(255, 250, 242, 0.98);
+        }
+        .pdf-tab-title {
+          font-size: 14px;
+          font-weight: 700;
+        }
+        .pdf-tab-actions {
+          display: flex;
+          gap: 10px;
+          flex-wrap: wrap;
+        }
+        .pdf-tab-actions a {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          padding: 10px 14px;
+          border-radius: 999px;
+          border: 1px solid rgba(91, 69, 50, 0.16);
+          background: #fff9ef;
+          color: #5b4532;
+          text-decoration: none;
+          font-weight: 700;
+        }
+        .pdf-tab-actions a.primary {
+          background: #5b4532;
+          color: #fff9ef;
+          border-color: #5b4532;
+        }
+        .pdf-tab-frame {
+          width: 100%;
+          height: 100%;
+          border: 0;
+          background: #efe7d8;
+        }
+      </style>
+    `;
+    popupDocument.body.innerHTML = `
+      <div class="pdf-tab">
+        <div class="pdf-tab-bar">
+          <div class="pdf-tab-title"></div>
+          <div class="pdf-tab-actions">
+            <a class="primary pdf-download">Download PDF</a>
+            <a class="pdf-open-raw" target="_blank" rel="noopener noreferrer">Open raw PDF</a>
+          </div>
+        </div>
+        <iframe class="pdf-tab-frame" title="PDF preview"></iframe>
+      </div>
+    `;
+
+    const title = popupDocument.querySelector('.pdf-tab-title');
+    if (title) title.textContent = pdfFile.filename;
+
+    const downloadLink = popupDocument.querySelector<HTMLAnchorElement>('.pdf-download');
+    if (downloadLink) {
+      downloadLink.href = pdfFile.url;
+      downloadLink.download = pdfFile.filename;
+    }
+
+    const rawLink = popupDocument.querySelector<HTMLAnchorElement>('.pdf-open-raw');
+    if (rawLink) {
+      rawLink.href = pdfFile.url;
+    }
+
+    const frame = popupDocument.querySelector<HTMLIFrameElement>('.pdf-tab-frame');
+    if (frame) frame.src = pdfFile.url;
+  };
+
+  const handleSaveProposal = () => {
+    const savedAt = new Date();
+    const filename = `${buildFileBaseName(doc, savedAt)}.json`;
+    const payload = {
+      savedAt: savedAt.toISOString(),
+      doc,
+    };
+    triggerDownload(
+      new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }),
+      filename
+    );
+    setStatus(`Proposal data saved as ${filename}.`);
   };
 
   const handleOpenPdf = async () => {
@@ -447,10 +579,11 @@ function App() {
     try {
       setIsExporting(true);
       setStatus('');
-      const pdfFile = await buildPdfFile();
+      const savedAt = new Date();
+      const pdfFile = await buildPdfFile(`${buildFileBaseName(doc, savedAt)}.pdf`);
 
       if (popup) {
-        popup.location.replace(pdfFile.url);
+        renderPdfTab(popup, pdfFile);
       } else {
         const link = document.createElement('a');
         link.href = pdfFile.url;
@@ -461,9 +594,9 @@ function App() {
 
       window.setTimeout(() => {
         URL.revokeObjectURL(pdfFile.url);
-      }, 60_000);
+      }, 10 * 60_000);
 
-      setStatus('PDF opened in a new tab.');
+      setStatus(`PDF opened in a new tab as ${pdfFile.filename}.`);
     } catch (error) {
       if (popup) popup.close();
       console.error(error);
@@ -521,6 +654,9 @@ function App() {
         </div>
 
         <div className="hero-actions">
+          <button className="btn" onClick={handleSaveProposal}>
+            Save proposal
+          </button>
           <button className="btn" onClick={handleOpenClientView}>
             Open client view
           </button>
