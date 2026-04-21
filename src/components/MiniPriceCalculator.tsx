@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { Copy } from 'lucide-react';
 import { Input, Label } from './ui';
 import { fmt } from '../utils';
 
@@ -11,6 +12,7 @@ function ResultTile({
   value,
   unit,
   onCopy,
+  copyLabel,
   disabled = false,
   emphasis = false,
 }: {
@@ -18,6 +20,7 @@ function ResultTile({
   value: number;
   unit: string;
   onCopy: () => void;
+  copyLabel: string;
   disabled?: boolean;
   emphasis?: boolean;
 }) {
@@ -49,9 +52,11 @@ function ResultTile({
         </div>
         <button
           type="button"
-          className="btn"
+          className="btn icon-btn"
           disabled={disabled}
           onClick={onCopy}
+          title={copyLabel}
+          aria-label={copyLabel}
           style={
             disabled
               ? undefined
@@ -61,7 +66,7 @@ function ResultTile({
                 }
           }
         >
-          Copy
+          <Copy size={16} strokeWidth={2.1} />
         </button>
       </div>
     </div>
@@ -176,18 +181,21 @@ export default function MiniPriceCalculator({ fxRate }: { fxRate?: number }) {
           label="THB / bottle"
           value={calculations.bottleThb}
           unit="THB"
+          copyLabel="Copy THB / bottle"
           onCopy={() => copyValue(calculations.bottleThb, 'THB / bottle')}
         />
         <ResultTile
           label="THB / CTN"
           value={calculations.cartonThb}
           unit="THB"
+          copyLabel="Copy THB / CTN"
           onCopy={() => copyValue(calculations.cartonThb, 'THB / CTN')}
         />
         <ResultTile
           label="USD / bottle"
           value={calculations.bottleUsd}
           unit="USD"
+          copyLabel="Copy USD / bottle"
           onCopy={() => copyValue(calculations.bottleUsd, 'USD / bottle')}
           disabled={!usableFxRate}
         />
@@ -195,6 +203,7 @@ export default function MiniPriceCalculator({ fxRate }: { fxRate?: number }) {
           label="Suggested quote price (USD / CTN)"
           value={calculations.cartonUsd}
           unit="USD"
+          copyLabel="Copy USD / CTN"
           onCopy={() => copyValue(calculations.cartonUsd, 'USD / CTN')}
           disabled={!usableFxRate}
           emphasis

@@ -5,6 +5,7 @@ import MiniPriceCalculator from './components/MiniPriceCalculator';
 import LogoUploader from './components/LogoUploader';
 import ClientProposalView from './components/ClientProposalView';
 import LoadingCalculatorPage from './components/LoadingCalculatorPage';
+import QuickQuotePage from './components/QuickQuotePage';
 import { Card, Input, Label, Select, Textarea } from './components/ui';
 import {
   GOODS_DESCRIPTION_PRESETS,
@@ -16,7 +17,7 @@ import {
 import { CommonDoc, Currency, Party } from './types';
 import { todayISO } from './utils';
 
-type AppPage = 'proposal' | 'loading';
+type AppPage = 'proposal' | 'loading' | 'quote';
 type StatusState =
   | {
       text: string;
@@ -48,7 +49,7 @@ function createDefaultItems(): CommonDoc['items'] {
       description: GOODS_DESCRIPTION_PRESETS[0],
       unit: 'CTN',
       qty: 256,
-      unitPrice: { currency: 'USD', value: 9.8 },
+      unitPrice: { currency: 'USD', value: 0 },
     },
   ];
 }
@@ -66,6 +67,17 @@ function isLegacyDefaultItems(items?: CommonDoc['items']) {
     items[1]?.qty === 400 &&
     items[1]?.unitPrice?.currency === 'USD' &&
     items[1]?.unitPrice?.value === 10.6
+  );
+}
+
+function isPreviousDefaultItems(items?: CommonDoc['items']) {
+  if (!items || items.length !== 1) return false;
+  return (
+    items[0]?.description === GOODS_DESCRIPTION_PRESETS[0] &&
+    items[0]?.unit === 'CTN' &&
+    items[0]?.qty === 256 &&
+    items[0]?.unitPrice?.currency === 'USD' &&
+    items[0]?.unitPrice?.value === 9.8
   );
 }
 
@@ -108,12 +120,12 @@ function createInitialDoc(): CommonDoc {
     deliveryTerms: INCOTERMS_PRESETS[0],
     brand: 'Coconut Blossom Collection',
     minOrderQty: {
-      value: 256,
-      unit: 'CTN',
+      value: 2,
+      unit: 'PALLET',
     },
     paymentTerms: PAYMENT_PRESETS[0],
     leadTime: '30-45 days after artwork confirmation',
-    fxRate: 34,
+    fxRate: 32,
     items: createDefaultItems(),
     notes: [
       'Quoted prices are indicative for THAIFEX meetings and subject to final packaging and destination review.',
@@ -162,10 +174,15 @@ function hydrateDoc(source?: Partial<CommonDoc> | null): CommonDoc {
     source.introNote === LEGACY_INTRO_NOTE ? '' : source.introNote;
 
   const normalizedMinOrderQty =
-    source.minOrderQty?.value === 400 && source.minOrderQty?.unit === 'CTN'
+    ((source.minOrderQty?.value === 400 && source.minOrderQty?.unit === 'CTN') ||
+      (source.minOrderQty?.value === 256 && source.minOrderQty?.unit === 'CTN'))
       ? base.minOrderQty
       : source.minOrderQty;
-  const normalizedItems = isLegacyDefaultItems(source.items) ? base.items : source.items;
+  const shouldResetToCurrentDefaults =
+    isLegacyDefaultItems(source.items) || isPreviousDefaultItems(source.items);
+  const normalizedItems = shouldResetToCurrentDefaults ? base.items : source.items;
+  const normalizedFxRate =
+    source.fxRate === 34 && shouldResetToCurrentDefaults ? base.fxRate : source.fxRate;
 
   return {
     ...base,
@@ -192,6 +209,7 @@ function hydrateDoc(source?: Partial<CommonDoc> | null): CommonDoc {
       : base.buyerContactPhone,
     website: source.website?.trim() ? source.website : base.website,
     contactEmail: source.contactEmail?.trim() ? source.contactEmail : base.contactEmail,
+    fxRate: normalizedFxRate ?? base.fxRate,
     items:
       normalizedItems && normalizedItems.length > 0
         ? normalizedItems.map((item) => ({
@@ -248,7 +266,9 @@ function decodeSharePayload(value: string | null) {
 
 function getRouteContext() {
   const params = new URLSearchParams(window.location.search);
-  const page: AppPage = params.get('page') === 'loading' ? 'loading' : 'proposal';
+  const pageParam = params.get('page');
+  const page: AppPage =
+    pageParam === 'loading' ? 'loading' : pageParam === 'quote' ? 'quote' : 'proposal';
   return {
     isClientView: params.get('view') === 'client',
     sharedDoc: decodeSharePayload(params.get('payload')),
@@ -386,6 +406,7 @@ function App() {
   const route = getRouteContext();
   const [page, setPage] = useState<AppPage>(route.page);
   const [loadingCalculatorKey, setLoadingCalculatorKey] = useState(0);
+  const [quickQuoteKey, setQuickQuoteKey] = useState(0);
   const [doc, setDoc] = useState<CommonDoc>(() => {
     if (route.sharedDoc) return hydrateDoc(route.sharedDoc);
     return hydrateDoc(safeParseDraft(localStorage.getItem(STORAGE_KEY)));
@@ -403,7 +424,9 @@ function App() {
       ? `${doc.subject || 'Client Proposal'} | Client View`
       : page === 'loading'
         ? 'Export Loading Calculator'
-        : 'ThaiFex Sales Proposal Studio';
+        : page === 'quote'
+          ? 'FCA / FOB Quick Quote'
+          : 'ThaiFex Sales Proposal Studio';
   }, [doc.subject, page, route.isClientView]);
 
   const deliveryPresetSelected = INCOTERMS_PRESETS.includes(doc.deliveryTerms);
@@ -621,6 +644,8 @@ function App() {
     const url = new URL(window.location.href);
     if (next === 'loading') {
       url.searchParams.set('page', 'loading');
+    } else if (next === 'quote') {
+      url.searchParams.set('page', 'quote');
     } else {
       url.searchParams.delete('page');
     }
@@ -674,17 +699,33 @@ function App() {
             >
               Loading calculator
             </button>
+            <button
+              className={`btn ${page === 'quote' ? 'primary' : ''}`}
+              onClick={() => handlePageChange('quote')}
+            >
+              FCA / FOB quote
+            </button>
           </div>
           <div className="app-kicker">
-            {page === 'loading' ? 'Export loading reference' : 'ThaiFex sales workflow'}
+            {page === 'loading'
+              ? 'Export loading reference'
+              : page === 'quote'
+                ? 'Trade-show quick quote'
+                : 'ThaiFex sales workflow'}
           </div>
           <h1>
-            {page === 'loading' ? 'Coconut Blossom Export Loading Calculator' : 'ThaiFex Sales Proposal Studio'}
+            {page === 'loading'
+              ? 'Coconut Blossom Export Loading Calculator'
+              : page === 'quote'
+                ? 'FCA / FOB Quick Quote'
+                : 'ThaiFex Sales Proposal Studio'}
           </h1>
           <p>
             {page === 'loading'
               ? 'Check cartons per pallet, palletized loading, and loose-load capacity in a separate customer-facing calculator during container discussions.'
-              : 'Prepare one buyer-ready quotation, open it as an online proposal on a second screen, and export the same content to PDF without reformatting.'}
+              : page === 'quote'
+                ? 'Answer EXW, FCA, and FOB price questions quickly, convert trade-show THB assumptions into USD, and copy USD / CTN values back into the quotation.'
+                : 'Prepare one buyer-ready quotation, open it as an online proposal on a second screen, and export the same content to PDF without reformatting.'}
           </p>
         </div>
 
@@ -697,8 +738,13 @@ function App() {
               <button className="btn" onClick={handleOpenClientView}>
                 Open client view
               </button>
-              <button className="btn" onClick={handleCopyLink}>
-                Copy online link
+              <button
+                className="btn icon-btn"
+                onClick={handleCopyLink}
+                title="Copy online link"
+                aria-label="Copy online link"
+              >
+                <Copy size={16} strokeWidth={2.1} />
               </button>
               <button className="btn primary" onClick={handleOpenPdf} disabled={isExporting}>
                 {isExporting ? 'Preparing PDF...' : 'Open PDF'}
@@ -712,8 +758,15 @@ function App() {
               <button className="btn" onClick={() => handlePageChange('proposal')}>
                 Back to proposal
               </button>
-              <button className="btn" onClick={() => setLoadingCalculatorKey((current) => current + 1)}>
-                Reset calculator
+              <button
+                className="btn"
+                onClick={() =>
+                  page === 'loading'
+                    ? setLoadingCalculatorKey((current) => current + 1)
+                    : setQuickQuoteKey((current) => current + 1)
+                }
+              >
+                {page === 'loading' ? 'Reset calculator' : 'Reset quote'}
               </button>
             </>
           )}
@@ -1004,7 +1057,7 @@ function App() {
                   onChange={(event) =>
                     updateDoc('fxRate', Number(event.target.value) || undefined)
                   }
-                  placeholder="34.00"
+                  placeholder="32.00"
                 />
               </div>
               <div className="grid">
@@ -1157,8 +1210,10 @@ function App() {
             </div>
           </div>
         </div>
-      ) : (
+      ) : page === 'loading' ? (
         <LoadingCalculatorPage key={loadingCalculatorKey} />
+      ) : (
+        <QuickQuotePage key={quickQuoteKey} />
       )}
     </div>
   );

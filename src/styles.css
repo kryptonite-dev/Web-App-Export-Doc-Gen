@@ -288,6 +288,16 @@ textarea.input {
   transform: none;
 }
 
+.btn.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  flex: 0 0 auto;
+}
+
 .muted {
   color: var(--ink-soft);
   font-size: 13px;
@@ -807,6 +817,160 @@ textarea.input {
   line-height: 1.6;
 }
 
+.quick-page {
+  margin-top: 24px;
+}
+
+.quick-scenarios {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.quick-scenario {
+  text-align: left;
+  border: 1px solid rgba(21, 37, 56, 0.08);
+  border-radius: 18px;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.78);
+  color: var(--ink);
+  box-shadow: 0 12px 28px rgba(17, 31, 47, 0.06);
+  transition: transform 0.16s ease, border-color 0.16s ease, background 0.16s ease;
+}
+
+.quick-scenario:hover {
+  transform: translateY(-1px);
+  border-color: rgba(14, 165, 233, 0.24);
+}
+
+.quick-scenario.active {
+  border-color: rgba(14, 165, 233, 0.36);
+  background: rgba(236, 254, 255, 0.86);
+}
+
+.quick-scenario span,
+.quick-scenario small {
+  display: block;
+}
+
+.quick-scenario span {
+  font-weight: 800;
+}
+
+.quick-scenario small {
+  margin-top: 5px;
+  color: var(--ink-soft);
+}
+
+.quick-grid {
+  display: grid;
+  grid-template-columns: minmax(360px, 1.05fr) minmax(0, 0.95fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.quick-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.quick-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.quick-ok,
+.quick-warn {
+  margin-top: 14px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  line-height: 1.6;
+}
+
+.quick-ok {
+  color: #1f6b4a;
+  background: rgba(236, 253, 245, 0.84);
+  border: 1px solid rgba(31, 122, 84, 0.18);
+}
+
+.quick-warn {
+  color: #8a4b16;
+  background: rgba(255, 247, 237, 0.9);
+  border: 1px solid rgba(199, 134, 34, 0.18);
+}
+
+.quick-price-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 18px;
+}
+
+.quick-price-box {
+  border-radius: 24px;
+  padding: 20px;
+  border: 1px solid rgba(21, 37, 56, 0.08);
+  box-shadow: var(--shadow);
+  min-width: 0;
+}
+
+.quick-price-box.exw {
+  background: rgba(248, 250, 252, 0.92);
+}
+
+.quick-price-box.fca {
+  background: rgba(240, 253, 244, 0.92);
+}
+
+.quick-price-box.fob {
+  background: rgba(239, 246, 255, 0.92);
+}
+
+.quick-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 11px;
+  border-radius: 999px;
+  background: rgba(55, 48, 163, 0.08);
+  color: #3730a3;
+  font-size: 12px;
+  font-weight: 800;
+  margin-bottom: 10px;
+}
+
+.quick-price-big {
+  margin: 8px 0 4px;
+  font-size: clamp(28px, 3vw, 36px);
+  line-height: 1;
+  font-weight: 900;
+}
+
+.quick-price-sub {
+  margin-bottom: 10px;
+  color: var(--ink-soft);
+  font-weight: 800;
+}
+
+.quick-copy-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin: 12px 0;
+  padding: 12px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.66);
+  border: 1px solid rgba(21, 37, 56, 0.08);
+}
+
+.quick-table-card {
+  margin-top: 18px;
+}
+
 .proposal-total-pill {
   display: inline-flex;
   align-items: center;
@@ -992,7 +1156,12 @@ textarea.input {
   .calc-summary-card,
   .calc-detail-card,
   .calc-kpis,
-  .calc-grid {
+  .calc-grid,
+  .quick-scenarios,
+  .quick-grid,
+  .quick-form-grid,
+  .quick-stat-grid,
+  .quick-price-grid {
     grid-template-columns: 1fr;
   }
 

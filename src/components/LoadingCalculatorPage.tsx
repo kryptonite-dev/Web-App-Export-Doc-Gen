@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { Copy } from 'lucide-react';
 import { Card, Input, Label } from './ui';
 import { fmt } from '../utils';
 
@@ -502,8 +503,10 @@ export default function LoadingCalculatorPage() {
                 </div>
                 <button
                   type="button"
-                  className="btn"
+                  className="btn icon-btn"
                   onClick={copyOrderCtn}
+                  title="Copy CTN"
+                  aria-label="Copy CTN"
                   style={{
                     marginTop: 12,
                     alignSelf: 'flex-start',
@@ -512,7 +515,7 @@ export default function LoadingCalculatorPage() {
                     color: '#152538',
                   }}
                 >
-                  Copy CTN
+                  <Copy size={16} strokeWidth={2.1} />
                 </button>
               </div>
 
