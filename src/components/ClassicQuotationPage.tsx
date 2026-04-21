@@ -11,13 +11,11 @@ type ClassicQuotation = {
   buyerAddress: string;
   attention: string;
   fromPerson: string;
-  fax: string;
   subject: string;
   deliveryTerm: string;
   date: string;
   pages: string;
   refNo: string;
-  brand: string;
   description: string;
   shippingMark: string;
   priceCurrency: string;
@@ -66,13 +64,11 @@ function defaultClassicQuotation(): ClassicQuotation {
     buyerAddress: 'Company / Country\nUpdate after the booth conversation',
     attention: 'Procurement Team',
     fromPerson: 'Taninnuth Warittarasith',
-    fax: '',
     subject: 'QUOTATION FOR COCONUT BLOSSOM JUICE 150 ML',
     deliveryTerm: 'FCA BANGKOK / KHLONG TOEI, THAILAND INCOTERMS 2020',
     date: todayISO(),
     pages: '1 of 1',
     refNo: 'FAHLADDA/TFX-2026-001',
-    brand: 'HUQ KHUUN',
     description: 'Coconut Blossom Juice 150 ml (24 bottles / carton)',
     shippingMark: 'HUQ KHUUN',
     priceCurrency: 'USD',
@@ -135,15 +131,25 @@ export default function ClassicQuotationPage() {
     event.currentTarget.value = '';
   };
 
-  const subtotal = quote.priceValue * quote.minQtyValue;
   const quantityLabel = `${fmt(quote.minQtyValue, 0)} ${quote.minQtyUnit}`;
-  const totalLabel = `${quote.priceCurrency} ${fmt(subtotal, 2)}`;
 
   return (
     <div className="classic-page">
-      <div className="classic-layout">
-        <div className="classic-editor">
-          <Card title="Document logo">
+      <div className="classic-layout workspace classic-workspace">
+        <div className="classic-editor editor-column">
+          <section className="classic-control-hero">
+            <div className="proposal-chip-row">
+              <span className="proposal-chip proposal-chip-accent">Classic quotation</span>
+              <span className="proposal-chip">A4 print ready</span>
+            </div>
+            <h2>Quotation controls</h2>
+            <p>
+              แก้ข้อมูลด้านซ้ายแล้วดูหน้าตาเอกสารจริงด้านขวา รูปแบบนี้แยกจาก Proposal
+              Studio เพื่อให้ปรับใบเสนอราคาแบบ classic ได้โดยไม่กระทบ flow เดิม
+            </p>
+          </section>
+
+          <Card title="Brand setup">
             <div className="grid">
               <Label>Upload logo</Label>
               <input className="input" type="file" accept="image/*" onChange={handleLogoChange} />
@@ -181,7 +187,7 @@ export default function ClassicQuotationPage() {
             </div>
           </Card>
 
-          <Card title="Classic quotation inputs">
+          <Card title="Buyer and seller details">
             <div className="grid two-col">
               <div className="grid">
                 <Label>Seller company</Label>
@@ -236,6 +242,13 @@ export default function ClassicQuotationPage() {
                 />
               </div>
               <div className="grid">
+                <Label>Pages</Label>
+                <Input
+                  value={quote.pages}
+                  onChange={(event) => update('pages', event.target.value)}
+                />
+              </div>
+              <div className="grid">
                 <Label>Our ref.</Label>
                 <Input
                   value={quote.refNo}
@@ -259,7 +272,7 @@ export default function ClassicQuotationPage() {
             </div>
           </Card>
 
-          <Card title="Goods and commercial terms">
+          <Card title="Product and commercial terms">
             <div className="grid two-col">
               <div className="grid full-span">
                 <Label>Description of goods</Label>
@@ -274,13 +287,6 @@ export default function ClassicQuotationPage() {
                 <Input
                   value={quote.shippingMark}
                   onChange={(event) => update('shippingMark', event.target.value)}
-                />
-              </div>
-              <div className="grid">
-                <Label>Brand</Label>
-                <Input
-                  value={quote.brand}
-                  onChange={(event) => update('brand', event.target.value)}
                 />
               </div>
               <div className="grid">
@@ -376,190 +382,8 @@ export default function ClassicQuotationPage() {
               </div>
             </div>
           </Card>
-        </div>
 
-        <div className="classic-preview-column">
-          <div className="classic-toolbar">
-            <span>New isolated quotation layout. Existing proposal/PDF is untouched.</span>
-            <button type="button" className="btn" onClick={() => window.print()}>
-              Print
-            </button>
-          </div>
-
-          <section className="classic-sheet" aria-label="Classic quotation preview">
-            <header className="classic-invoice-header">
-              <div className="classic-header-main">
-                <div className="classic-logo-slot">
-                  <img
-                    src={quote.logoDataUrl || DEFAULT_CLASSIC_LOGO_SRC}
-                    alt="Company logo"
-                    className="classic-logo-image"
-                    style={{ maxWidth: quote.logoWidth }}
-                  />
-                </div>
-                <div>
-                  <h2>QUOTATION</h2>
-                  <p>{quote.sellerName}</p>
-                  <span>{quote.subject}</span>
-                </div>
-              </div>
-
-              <div className="classic-document-meta">
-                <p>
-                  <strong>Quotation No:</strong>
-                  <span>{quote.refNo}</span>
-                </p>
-                <p>
-                  <strong>Date:</strong>
-                  <span>{formatDisplayDate(quote.date)}</span>
-                </p>
-                <p>
-                  <strong>Validity:</strong>
-                  <span>30 Days</span>
-                </p>
-                <p>
-                  <strong>Currency:</strong>
-                  <span>{quote.priceCurrency}</span>
-                </p>
-              </div>
-            </header>
-
-            <div className="classic-address-grid">
-              <section className="classic-address-card">
-                <h3>From (Exporter)</h3>
-                <strong>{quote.sellerName}</strong>
-                {blockLines(quote.sellerAddress).map((line) => (
-                  <p key={line}>{line}</p>
-                ))}
-                <p>Email: huqkhuun@gmail.com</p>
-                <p>Web: huqkhuun.com</p>
-              </section>
-
-              <section className="classic-address-card">
-                <h3>To (Importer)</h3>
-                <strong>{quote.buyerName}</strong>
-                {blockLines(quote.buyerAddress).map((line) => (
-                  <p key={line}>{line}</p>
-                ))}
-                <p>Attn: {quote.attention || '-'}</p>
-              </section>
-            </div>
-
-            <div className="classic-logistics-grid">
-              <div>
-                <span>Incoterms 2020</span>
-                <strong>{quote.deliveryTerm}</strong>
-              </div>
-              <div>
-                <span>Payment Terms</span>
-                <strong>{quote.paymentTerms}</strong>
-              </div>
-              <div>
-                <span>Port of Loading</span>
-                <strong>Bangkok, Thailand</strong>
-              </div>
-              <div>
-                <span>Shipping Mark</span>
-                <strong>{quote.shippingMark}</strong>
-              </div>
-            </div>
-
-            <div className="classic-table-wrap">
-              <table className="classic-items-table">
-                <thead>
-                  <tr>
-                    <th>Description of Goods</th>
-                    <th>Brand</th>
-                    <th className="center">Qty</th>
-                    <th className="right">Unit Price ({quote.priceCurrency})</th>
-                    <th className="right">Total ({quote.priceCurrency})</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td>
-                      <strong>{quote.description}</strong>
-                      <span>Price basis: {quote.priceUnit}</span>
-                    </td>
-                    <td>{quote.brand}</td>
-                    <td className="center">{quantityLabel}</td>
-                    <td className="right">
-                      {quote.priceCurrency} {fmt(quote.priceValue, 2)}
-                    </td>
-                    <td className="right strong">{fmt(subtotal, 2)}</td>
-                  </tr>
-                </tbody>
-                <tfoot>
-                  <tr>
-                    <td colSpan={3} />
-                    <td>Subtotal</td>
-                    <td>{fmt(subtotal, 2)}</td>
-                  </tr>
-                  <tr>
-                    <td colSpan={3} />
-                    <td>Tax / VAT (0%)</td>
-                    <td>{fmt(0, 2)}</td>
-                  </tr>
-                  <tr className="classic-grand-total">
-                    <td colSpan={3} />
-                    <td>Grand Total</td>
-                    <td>{totalLabel}</td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-
-            <div className="classic-payment-grid">
-              <section className="classic-bank-card">
-                <h4>Bank Account Information (International Transfer)</h4>
-                <p>
-                  <strong>Beneficiary:</strong>
-                  <span>{quote.sellerName}</span>
-                </p>
-                <p>
-                  <strong>Bank Name:</strong>
-                  <span>{quote.sellerBank}</span>
-                </p>
-                <p>
-                  <strong>Bank Address:</strong>
-                  <span>{quote.bankAddress}</span>
-                </p>
-                <p>
-                  <strong>SWIFT Code:</strong>
-                  <span>{quote.swiftCode}</span>
-                </p>
-              </section>
-
-              <section className="classic-remarks-card">
-                <h4>Remarks</h4>
-                <ul>
-                  <li>All banking fees outside Thailand are borne by the buyer.</li>
-                  <li>
-                    Exchange rate reference: 1 USD = {fmt(quote.fxRate, 2)} THB.
-                  </li>
-                  <li>{quote.closingLine1} {quote.closingLine2}</li>
-                </ul>
-                <div className="classic-signature-pair">
-                  <div className="classic-sign-box">
-                    <span>Authorized Signature</span>
-                    <strong>{quote.signName}</strong>
-                    <p>{quote.signTitle}</p>
-                  </div>
-                  <div className="classic-sign-box muted-sign">
-                    <span>Customer Acceptance</span>
-                    <strong>Date & Stamp</strong>
-                    <p>&nbsp;</p>
-                  </div>
-                </div>
-              </section>
-            </div>
-
-            <footer className="classic-invoice-footer">
-              Prepared by {quote.fromPerson} | {quote.sellerName}
-            </footer>
-          </section>
-
-          <section className="classic-guide">
+          <section className="classic-guide proposal-card">
             <h3>รายละเอียดในใบเสนอราคาเพื่อการส่งออกเบื้องต้น (Quotation)</h3>
             <div className="classic-guide-grid">
               {FIELD_GUIDE.map((item, index) => (
@@ -570,6 +394,157 @@ export default function ClassicQuotationPage() {
               ))}
             </div>
           </section>
+        </div>
+
+        <div className="classic-preview-column preview-column">
+          <div className="preview-shell classic-preview-shell">
+            <div className="preview-head classic-toolbar classic-preview-head">
+              <div>
+                <div className="preview-eyebrow">Online preview</div>
+                <h2>Classic quotation</h2>
+                <p>เอกสารด้านล่างคือหน้าที่จะ print หรือ save เป็น PDF</p>
+              </div>
+              <button type="button" className="btn primary" onClick={() => window.print()}>
+                Print
+              </button>
+            </div>
+
+            <section className="classic-sheet quote-sheet-v2" aria-label="Classic quotation preview">
+              <header className="quote-v2-header">
+                <div className="quote-v2-brand">
+                  <img
+                    src={quote.logoDataUrl || DEFAULT_CLASSIC_LOGO_SRC}
+                    alt="Company logo"
+                    className="quote-v2-logo"
+                    style={{ maxWidth: quote.logoWidth }}
+                  />
+                  <div>
+                    <h2>{quote.sellerName}</h2>
+                    {blockLines(quote.sellerAddress).map((line) => (
+                      <p key={line}>{line}</p>
+                    ))}
+                  </div>
+                </div>
+                <div className="quote-v2-title">QUOTATION</div>
+              </header>
+
+              <section className="quote-v2-top">
+                <div className="quote-v2-party quote-v2-party-wide">
+                  <div className="quote-v2-label">Seller</div>
+                  <strong>{quote.sellerName}</strong>
+                  {blockLines(quote.sellerAddress).map((line) => (
+                    <span key={line}>{line}</span>
+                  ))}
+                </div>
+                <dl className="quote-v2-meta">
+                  <div>
+                    <dt>Date</dt>
+                    <dd>{formatDisplayDate(quote.date)}</dd>
+                  </div>
+                  <div>
+                    <dt>Pages</dt>
+                    <dd>{quote.pages}</dd>
+                  </div>
+                  <div>
+                    <dt>Our Ref.</dt>
+                    <dd>{quote.refNo}</dd>
+                  </div>
+                </dl>
+                <div className="quote-v2-party quote-v2-party-full">
+                  <div className="quote-v2-label">Buyer</div>
+                  <strong>{quote.buyerName}</strong>
+                  {blockLines(quote.buyerAddress).map((line) => (
+                    <span key={line}>{line}</span>
+                  ))}
+                </div>
+              </section>
+
+              <section className="quote-v2-strip">
+                <div>
+                  <span>Attn</span>
+                  <strong>{quote.attention || '-'}</strong>
+                </div>
+                <div>
+                  <span>From</span>
+                  <strong>{quote.fromPerson || '-'}</strong>
+                </div>
+                <div className="quote-v2-strip-wide">
+                  <span>Subject</span>
+                  <strong>{quote.subject}</strong>
+                </div>
+              </section>
+
+              <section className="quote-v2-delivery">
+                <div>
+                  <span>Term of delivery</span>
+                  <strong>{quote.deliveryTerm}</strong>
+                </div>
+                <p>Price quotation for {quote.buyerName}</p>
+              </section>
+
+              <section className="quote-v2-goods">
+                <div className="quote-v2-section-title">Description of goods</div>
+                <strong>{quote.description}</strong>
+                <div className="quote-v2-goods-grid">
+                  <div>
+                    <span>Shipping mark</span>
+                    <strong>{quote.shippingMark}</strong>
+                  </div>
+                  <div>
+                    <span>{`Price / ${quote.priceUnit}`}</span>
+                    <strong>
+                      {quote.priceCurrency} {fmt(quote.priceValue, 2)}
+                    </strong>
+                  </div>
+                  <div>
+                    <span>Min. Qty / Order</span>
+                    <strong>{quantityLabel}</strong>
+                  </div>
+                </div>
+              </section>
+
+              <section className="quote-v2-payment">
+                <div className="quote-v2-payment-main">
+                  <div className="quote-v2-section-title">Payment and bank details</div>
+                  <dl>
+                    <div>
+                      <dt>Term of payment</dt>
+                      <dd>{quote.paymentTerms}</dd>
+                    </div>
+                    <div>
+                      <dt>Seller's bank</dt>
+                      <dd>{quote.sellerBank}</dd>
+                    </div>
+                    <div>
+                      <dt>Address</dt>
+                      <dd>{quote.bankAddress}</dd>
+                    </div>
+                    <div>
+                      <dt>Swift code</dt>
+                      <dd>{quote.swiftCode}</dd>
+                    </div>
+                  </dl>
+                </div>
+                <div className="quote-v2-exchange">
+                  <span>Exchange rate</span>
+                  <strong>1 USD = {fmt(quote.fxRate, 2)} THB</strong>
+                </div>
+              </section>
+
+              <section className="quote-v2-closing">
+                <div className="quote-v2-message">
+                  <p>{quote.closingLine1}</p>
+                  <p>{quote.closingLine2}</p>
+                </div>
+                <div className="quote-v2-signature">
+                  <p>Sincerely yours,</p>
+                  <div className="quote-v2-sign-space" />
+                  <strong>{quote.signName}</strong>
+                  <span>{quote.signTitle}</span>
+                </div>
+              </section>
+            </section>
+          </div>
         </div>
       </div>
     </div>

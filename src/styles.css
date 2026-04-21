@@ -1004,6 +1004,10 @@ textarea.input {
   margin-top: 24px;
 }
 
+.classic-workspace {
+  margin-top: 0;
+}
+
 .classic-layout {
   display: grid;
   grid-template-columns: minmax(360px, 470px) minmax(0, 1fr);
@@ -1016,9 +1020,37 @@ textarea.input {
   gap: 16px;
 }
 
+.classic-control-hero {
+  padding: 22px;
+  border-radius: 26px;
+  color: #5c4530;
+  background:
+    radial-gradient(circle at top right, rgba(255, 247, 226, 0.68), transparent 34%),
+    linear-gradient(135deg, rgba(204, 176, 111, 0.94), rgba(187, 149, 81, 0.9) 64%, rgba(217, 194, 139, 0.94));
+  border: 1px solid rgba(92, 69, 48, 0.1);
+  box-shadow: 0 24px 56px rgba(92, 69, 48, 0.12);
+}
+
+.classic-control-hero h2 {
+  margin: 16px 0 8px;
+  font-size: 26px;
+  line-height: 1.1;
+}
+
+.classic-control-hero p {
+  margin: 0;
+  color: rgba(92, 69, 48, 0.82);
+  font-size: 14px;
+  line-height: 1.65;
+}
+
 .classic-preview-column {
   display: grid;
   gap: 16px;
+}
+
+.classic-preview-shell {
+  overflow: auto;
 }
 
 .classic-logo-control {
@@ -1051,15 +1083,39 @@ textarea.input {
   box-shadow: 0 10px 30px rgba(17, 31, 47, 0.06);
 }
 
+.classic-preview-head {
+  margin-bottom: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--ink);
+}
+
+.classic-preview-head h2 {
+  margin: 6px 0 4px;
+  color: var(--ink);
+  font-size: 24px;
+  line-height: 1.12;
+}
+
+.classic-preview-head p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
 .classic-sheet {
   width: min(100%, 816px);
   margin: 0 auto;
   padding: 38px 44px 32px;
-  background: #ffffff;
-  color: #374151;
-  border: 1px solid rgba(17, 24, 39, 0.08);
+  background: #fffdf9;
+  color: #5b4532;
+  border: 1px solid rgba(220, 199, 161, 0.72);
   border-radius: 18px;
-  box-shadow: 0 24px 70px rgba(17, 24, 39, 0.14);
+  box-shadow: 0 28px 70px rgba(92, 69, 48, 0.14);
   font-family: "Aptos", "Avenir Next", "Noto Sans Thai", sans-serif;
 }
 
@@ -1392,6 +1448,781 @@ textarea.input {
   text-align: center;
 }
 
+.classic-quotation-sheet {
+  --classic-ink: #5b4532;
+  --classic-ink-soft: #8f7358;
+  --classic-stroke: #dcc7a1;
+  --classic-sand: #fffaf2;
+  --classic-sand-strong: #f7ecd4;
+  --classic-gold: #a97828;
+  --classic-white: #fffdf9;
+  position: relative;
+  overflow: hidden;
+  padding: 34px 38px;
+  background:
+    radial-gradient(circle at top right, rgba(255, 247, 226, 0.58), transparent 34%),
+    linear-gradient(180deg, rgba(255, 252, 246, 0.98), rgba(245, 237, 220, 0.9));
+  border-color: rgba(92, 69, 48, 0.1);
+  border-radius: 28px;
+}
+
+.classic-quotation-sheet::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 8px;
+  background: linear-gradient(90deg, #dfc78f, #a97828 38%, #5c4530);
+}
+
+.classic-quote-hero,
+.classic-party-panel,
+.classic-contact-panel,
+.classic-delivery-card,
+.classic-goods-card,
+.classic-bank-panel,
+.classic-closing-panel {
+  position: relative;
+}
+
+.classic-quote-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 242px;
+  gap: 24px;
+  align-items: start;
+  padding: 12px 0 22px;
+  border-bottom: 1px solid rgba(92, 69, 48, 0.12);
+}
+
+.classic-quote-brand {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+  min-width: 0;
+}
+
+.classic-quote-logo-slot {
+  min-width: 128px;
+  min-height: 116px;
+}
+
+.classic-quote-title span {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--classic-gold);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.classic-quote-title h2 {
+  margin: 0;
+  color: var(--classic-ink);
+  font-size: 38px;
+  line-height: 0.95;
+  letter-spacing: -0.04em;
+}
+
+.classic-quote-title p {
+  max-width: 420px;
+  margin: 12px 0 0;
+  color: var(--classic-ink-soft);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.classic-quote-meta {
+  display: grid;
+  gap: 9px;
+  margin: 0;
+  padding: 16px;
+  border-radius: 18px;
+  background: rgba(247, 236, 212, 0.72);
+  border: 1px solid rgba(92, 69, 48, 0.1);
+}
+
+.classic-quote-meta div {
+  display: grid;
+  grid-template-columns: 70px minmax(0, 1fr);
+  gap: 10px;
+  align-items: baseline;
+}
+
+.classic-quote-meta dt {
+  color: var(--classic-ink-soft);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.classic-quote-meta dd {
+  min-width: 0;
+  margin: 0;
+  color: var(--classic-ink);
+  font-size: 12px;
+  font-weight: 800;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.classic-party-panel {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  margin: 22px 0 16px;
+}
+
+.classic-party-card {
+  min-height: 132px;
+  padding: 18px;
+  border-radius: 20px;
+  background: rgba(255, 250, 241, 0.88);
+  border: 1px solid rgba(92, 69, 48, 0.08);
+  box-shadow: 0 14px 30px rgba(92, 69, 48, 0.06);
+}
+
+.classic-party-card.buyer {
+  background: rgba(255, 248, 235, 0.62);
+}
+
+.classic-party-card span,
+.classic-contact-panel span,
+.classic-delivery-card span,
+.classic-section-heading span,
+.classic-commerce-grid span,
+.classic-bank-list p span,
+.classic-exchange-card span {
+  display: block;
+  color: var(--classic-gold);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.classic-party-card h3 {
+  margin: 10px 0 8px;
+  color: var(--classic-ink);
+  font-size: 16px;
+  line-height: 1.15;
+}
+
+.classic-party-card p {
+  margin: 3px 0;
+  color: var(--classic-ink-soft);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.classic-contact-panel {
+  display: grid;
+  grid-template-columns: 1fr 1fr 0.8fr 1.6fr;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: #5c4530;
+}
+
+.classic-contact-panel span {
+  margin-bottom: 5px;
+  color: #dfc78f;
+  font-size: 9px;
+}
+
+.classic-contact-panel strong {
+  display: block;
+  color: #fff8ec;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.classic-delivery-card {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: flex-end;
+  margin-bottom: 16px;
+  padding: 17px 18px;
+  border-radius: 20px;
+  background: rgba(247, 236, 212, 0.72);
+  border: 1px solid rgba(92, 69, 48, 0.08);
+}
+
+.classic-delivery-card strong {
+  display: block;
+  margin-top: 6px;
+  color: var(--classic-ink);
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.classic-delivery-card p {
+  margin: 0;
+  color: var(--classic-gold);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-align: right;
+  text-transform: uppercase;
+}
+
+.classic-goods-card {
+  margin-bottom: 16px;
+  padding: 18px;
+  border-radius: 22px;
+  background: rgba(255, 250, 241, 0.88);
+  border: 1px solid rgba(92, 69, 48, 0.08);
+}
+
+.classic-section-heading {
+  display: grid;
+  gap: 8px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(92, 69, 48, 0.08);
+}
+
+.classic-section-heading strong {
+  color: var(--classic-ink);
+  font-size: 18px;
+  line-height: 1.25;
+}
+
+.classic-commerce-grid {
+  display: grid;
+  grid-template-columns: 1.05fr 0.9fr 1fr 1fr;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.classic-commerce-grid div {
+  padding: 14px;
+  border-radius: 16px;
+  background: rgba(244, 233, 205, 0.72);
+  border: 1px solid rgba(92, 69, 48, 0.06);
+}
+
+.classic-commerce-grid span {
+  margin-bottom: 7px;
+  color: var(--classic-ink-soft);
+  font-size: 9px;
+}
+
+.classic-commerce-grid strong {
+  display: block;
+  color: var(--classic-ink);
+  font-size: 13px;
+  line-height: 1.25;
+}
+
+.classic-bank-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 220px;
+  gap: 18px;
+  align-items: stretch;
+  margin-bottom: 18px;
+}
+
+.classic-bank-list {
+  padding: 18px;
+  border-radius: 22px;
+  background: rgba(255, 250, 241, 0.88);
+  border: 1px solid rgba(92, 69, 48, 0.08);
+}
+
+.classic-bank-list h4 {
+  margin: 0 0 12px;
+  color: var(--classic-ink);
+  font-size: 15px;
+}
+
+.classic-bank-list p {
+  display: grid;
+  grid-template-columns: 124px minmax(0, 1fr);
+  gap: 12px;
+  margin: 0;
+  padding: 7px 0;
+  border-top: 1px solid rgba(92, 69, 48, 0.08);
+}
+
+.classic-bank-list p span {
+  color: var(--classic-ink-soft);
+  font-size: 9px;
+}
+
+.classic-bank-list p strong {
+  min-width: 0;
+  color: var(--classic-ink);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.classic-exchange-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 18px;
+  border-radius: 22px;
+  background: #5c4530;
+  color: #fff8ec;
+}
+
+.classic-exchange-card span {
+  color: #dfc78f;
+}
+
+.classic-exchange-card strong {
+  display: block;
+  margin-top: 10px;
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+.classic-closing-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 260px;
+  gap: 24px;
+  align-items: end;
+  padding-top: 18px;
+  border-top: 1px solid rgba(92, 69, 48, 0.12);
+}
+
+.classic-closing-message {
+  color: var(--classic-ink);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.7;
+}
+
+.classic-closing-message p {
+  margin: 0 0 5px;
+}
+
+.classic-signature-panel {
+  text-align: center;
+}
+
+.classic-signature-panel p {
+  margin: 0;
+  color: var(--classic-ink);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.classic-signature-space {
+  height: 78px;
+}
+
+.classic-signature-panel strong {
+  display: block;
+  color: var(--classic-ink);
+  font-size: 13px;
+}
+
+.classic-signature-panel span {
+  display: block;
+  margin-top: 5px;
+  color: var(--classic-ink-soft);
+  font-size: 12px;
+}
+
+.quote-sheet-v2 {
+  --quote-ink: #4f3d2c;
+  --quote-soft: #80674d;
+  --quote-line: #e2cda4;
+  --quote-sand: #fffaf1;
+  --quote-sand-strong: #f4e7ce;
+  --quote-gold: #b6842c;
+  --quote-gold-soft: #d7bd79;
+  --quote-deep: #5b4532;
+  position: relative;
+  overflow: hidden;
+  padding: 34px 38px;
+  background: #fff8ec;
+  border-color: var(--quote-line);
+  border-radius: 28px;
+  color: var(--quote-ink);
+}
+
+.quote-sheet-v2::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 8px;
+  background: var(--quote-gold);
+}
+
+.quote-v2-header,
+.quote-v2-top,
+.quote-v2-strip,
+.quote-v2-delivery,
+.quote-v2-goods,
+.quote-v2-payment,
+.quote-v2-closing {
+  position: relative;
+}
+
+.quote-v2-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+  padding: 10px 0 18px;
+  border-bottom: 1px solid var(--quote-line);
+}
+
+.quote-v2-brand {
+  display: grid;
+  grid-template-columns: 132px minmax(0, 1fr);
+  gap: 22px;
+  align-items: center;
+}
+
+.quote-v2-logo {
+  width: auto;
+  max-height: 108px;
+  object-fit: contain;
+  border-radius: 18px;
+}
+
+.quote-v2-brand h2 {
+  margin: 0 0 7px;
+  color: var(--quote-ink);
+  font-size: 20px;
+  line-height: 1.1;
+  letter-spacing: 0.01em;
+}
+
+.quote-v2-brand p {
+  margin: 2px 0;
+  color: var(--quote-soft);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.quote-v2-title {
+  justify-self: center;
+  color: var(--quote-ink);
+  font-size: 34px;
+  font-weight: 900;
+  letter-spacing: 0.16em;
+}
+
+.quote-v2-top {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 250px;
+  gap: 16px;
+  margin-top: 18px;
+}
+
+.quote-v2-party,
+.quote-v2-meta,
+.quote-v2-delivery,
+.quote-v2-goods,
+.quote-v2-payment-main,
+.quote-v2-exchange {
+  border: 1px solid var(--quote-line);
+  box-shadow: none;
+}
+
+.quote-v2-party {
+  min-height: 108px;
+  padding: 16px;
+  border-radius: 20px;
+  background: #fffdf9;
+}
+
+.quote-v2-party-full {
+  grid-column: 1 / -1;
+}
+
+.quote-v2-label,
+.quote-v2-strip span,
+.quote-v2-delivery span,
+.quote-v2-section-title,
+.quote-v2-goods-grid span,
+.quote-v2-payment dt,
+.quote-v2-exchange span {
+  display: block;
+  color: var(--quote-gold);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.quote-v2-party strong {
+  display: block;
+  margin: 8px 0 6px;
+  color: var(--quote-ink);
+  font-size: 15px;
+  line-height: 1.2;
+}
+
+.quote-v2-party span:not(.quote-v2-label) {
+  display: block;
+  color: var(--quote-soft);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.quote-v2-meta {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 20px;
+  background: var(--quote-sand-strong);
+}
+
+.quote-v2-meta div {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr);
+  gap: 10px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--quote-line);
+}
+
+.quote-v2-meta div:last-child {
+  border-bottom: 0;
+}
+
+.quote-v2-meta dt {
+  color: var(--quote-soft);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.quote-v2-meta dd {
+  min-width: 0;
+  margin: 0;
+  color: var(--quote-ink);
+  font-size: 12px;
+  font-weight: 800;
+  text-align: right;
+}
+
+.quote-v2-strip {
+  display: grid;
+  grid-template-columns: 1fr 1fr 2fr;
+  gap: 0;
+  margin-top: 14px;
+  overflow: hidden;
+  border-radius: 18px;
+  background: var(--quote-sand-strong);
+  border: 1px solid var(--quote-line);
+}
+
+.quote-v2-strip > div {
+  min-width: 0;
+  padding: 13px 14px;
+  border-right: 1px solid var(--quote-line);
+}
+
+.quote-v2-strip > div:last-child {
+  border-right: 0;
+}
+
+.quote-v2-strip span {
+  color: var(--quote-gold);
+  font-size: 9px;
+  margin-bottom: 6px;
+}
+
+.quote-v2-strip strong {
+  display: block;
+  color: var(--quote-ink);
+  font-size: 12px;
+  line-height: 1.32;
+}
+
+.quote-v2-delivery {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 250px;
+  gap: 18px;
+  align-items: center;
+  margin-top: 14px;
+  padding: 16px;
+  border-radius: 20px;
+  background: var(--quote-sand-strong);
+}
+
+.quote-v2-delivery strong {
+  display: block;
+  margin-top: 7px;
+  color: var(--quote-ink);
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.quote-v2-delivery p {
+  margin: 0;
+  color: var(--quote-gold);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-align: right;
+  text-transform: uppercase;
+}
+
+.quote-v2-goods {
+  margin-top: 14px;
+  padding: 17px;
+  border-radius: 22px;
+  background: #fffdf9;
+}
+
+.quote-v2-goods > strong {
+  display: block;
+  margin-top: 7px;
+  color: var(--quote-ink);
+  font-size: 17px;
+  line-height: 1.25;
+}
+
+.quote-v2-goods-grid {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr 1fr;
+  gap: 12px;
+  margin-top: 15px;
+}
+
+.quote-v2-goods-grid div {
+  padding: 14px;
+  border-radius: 17px;
+  background: var(--quote-sand-strong);
+  border: 1px solid var(--quote-line);
+}
+
+.quote-v2-goods-grid span {
+  margin-bottom: 7px;
+  color: var(--quote-soft);
+  font-size: 9px;
+}
+
+.quote-v2-goods-grid strong {
+  display: block;
+  color: var(--quote-ink);
+  font-size: 13px;
+  line-height: 1.25;
+}
+
+.quote-v2-payment {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 220px;
+  gap: 16px;
+  margin-top: 14px;
+}
+
+.quote-v2-payment-main {
+  padding: 17px;
+  border-radius: 22px;
+  background: #fffdf9;
+}
+
+.quote-v2-payment dl {
+  margin: 10px 0 0;
+}
+
+.quote-v2-payment dl div {
+  display: grid;
+  grid-template-columns: 130px minmax(0, 1fr);
+  gap: 12px;
+  padding: 8px 0;
+  border-top: 1px solid var(--quote-line);
+}
+
+.quote-v2-payment dt {
+  color: var(--quote-soft);
+  font-size: 9px;
+}
+
+.quote-v2-payment dd {
+  min-width: 0;
+  margin: 0;
+  color: var(--quote-ink);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.quote-v2-exchange {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 18px;
+  border-radius: 22px;
+  background: #efd9a6;
+  border-color: var(--quote-line);
+  border-left: 6px solid var(--quote-gold);
+  box-shadow: none;
+}
+
+.quote-v2-exchange span {
+  color: #6d5125;
+}
+
+.quote-v2-exchange strong {
+  display: block;
+  margin-top: 12px;
+  color: #4f3d2c;
+  font-size: 18px;
+  line-height: 1.18;
+}
+
+.quote-v2-closing {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 260px;
+  gap: 24px;
+  align-items: end;
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid var(--quote-line);
+}
+
+.quote-v2-message {
+  color: var(--quote-ink);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.7;
+}
+
+.quote-v2-message p {
+  margin: 0 0 5px;
+}
+
+.quote-v2-signature {
+  color: var(--quote-ink);
+  text-align: center;
+}
+
+.quote-v2-signature p {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.quote-v2-sign-space {
+  height: 80px;
+}
+
+.quote-v2-signature strong {
+  display: block;
+  color: var(--quote-ink);
+  font-size: 13px;
+}
+
+.quote-v2-signature span {
+  display: block;
+  margin-top: 5px;
+  color: var(--quote-soft);
+  font-size: 12px;
+}
+
 .classic-guide {
   width: min(100%, 816px);
   margin: 0 auto;
@@ -1621,8 +2452,54 @@ textarea.input {
   .classic-address-grid,
   .classic-logistics-grid,
   .classic-payment-grid,
-  .classic-signature-pair {
+  .classic-signature-pair,
+  .classic-quote-hero,
+  .classic-quote-brand,
+  .classic-party-panel,
+  .classic-contact-panel,
+  .classic-commerce-grid,
+  .classic-bank-panel,
+  .classic-closing-panel {
     grid-template-columns: 1fr;
+  }
+
+  .classic-quote-brand {
+    display: grid;
+  }
+
+  .classic-quote-meta dd,
+  .classic-delivery-card p {
+    text-align: left;
+  }
+
+  .classic-delivery-card {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .quote-v2-brand,
+  .quote-v2-top,
+  .quote-v2-strip,
+  .quote-v2-delivery,
+  .quote-v2-goods-grid,
+  .quote-v2-payment,
+  .quote-v2-closing {
+    grid-template-columns: 1fr;
+  }
+
+  .quote-v2-delivery p,
+  .quote-v2-meta dd {
+    text-align: left;
+  }
+
+  .quote-v2-payment dl div {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .classic-bank-list p {
+    grid-template-columns: 1fr;
+    gap: 4px;
   }
 
   .classic-invoice-header {
@@ -1673,18 +2550,19 @@ textarea.input {
 @media print {
   @page {
     size: A4 portrait;
-    margin: 8mm;
+    margin: 0;
   }
 
   html,
   body,
   #root {
     width: 100%;
-    min-height: auto;
+    min-height: 100%;
+    background: #fff8ec;
   }
 
   body {
-    background: #fff;
+    background: #fff8ec;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
@@ -1696,6 +2574,8 @@ textarea.input {
   .app-hero,
   .classic-editor,
   .classic-toolbar,
+  .classic-control-hero,
+  .classic-preview-head,
   .classic-guide,
   .status-banner {
     display: none;
@@ -1705,6 +2585,7 @@ textarea.input {
     width: 100%;
     margin: 0;
     padding: 0;
+    background: #fff8ec;
   }
 
   .client-shell {
@@ -1714,14 +2595,29 @@ textarea.input {
 
   .classic-page {
     margin: 0;
+    background: #fff8ec;
   }
 
   .classic-layout {
     display: block;
+    background: #fff8ec;
   }
 
   .classic-preview-column {
     display: block;
+    background: #fff8ec;
+  }
+
+  .classic-preview-shell {
+    display: block;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: #fff8ec;
+    box-shadow: none;
+    overflow: visible;
+    backdrop-filter: none;
   }
 
   .classic-sheet {
@@ -1894,6 +2790,410 @@ textarea.input {
   .classic-logistics-grid,
   .classic-table-wrap,
   .classic-payment-grid {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .classic-quotation-sheet {
+    padding: 7mm 8mm 6mm;
+    border-radius: 0;
+  }
+
+  .classic-quotation-sheet::before {
+    height: 4px;
+  }
+
+  .classic-quote-hero {
+    grid-template-columns: minmax(0, 1fr) 220px;
+    gap: 16px;
+    padding: 6px 0 12px;
+  }
+
+  .classic-quote-brand {
+    display: flex;
+    gap: 12px;
+  }
+
+  .classic-quote-logo-slot {
+    min-width: 86px;
+    min-height: 72px;
+  }
+
+  .classic-quote-title span {
+    margin-bottom: 5px;
+    font-size: 7.5px;
+  }
+
+  .classic-quote-title h2 {
+    font-size: 24px;
+  }
+
+  .classic-quote-title p {
+    margin-top: 6px;
+    font-size: 8.5px;
+  }
+
+  .classic-quote-meta {
+    gap: 5px;
+    padding: 9px;
+    border-radius: 10px;
+  }
+
+  .classic-quote-meta div {
+    grid-template-columns: 52px minmax(0, 1fr);
+    gap: 6px;
+  }
+
+  .classic-quote-meta dt,
+  .classic-party-card span,
+  .classic-contact-panel span,
+  .classic-delivery-card span,
+  .classic-section-heading span,
+  .classic-commerce-grid span,
+  .classic-bank-list p span,
+  .classic-exchange-card span {
+    font-size: 7.5px;
+  }
+
+  .classic-quote-meta dd,
+  .classic-party-card p,
+  .classic-contact-panel strong,
+  .classic-commerce-grid strong,
+  .classic-bank-list p strong,
+  .classic-closing-message,
+  .classic-signature-panel p,
+  .classic-signature-panel span {
+    font-size: 9px;
+  }
+
+  .classic-party-panel {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin: 12px 0 9px;
+  }
+
+  .classic-party-card {
+    min-height: 84px;
+    padding: 10px;
+    border-radius: 12px;
+    box-shadow: none;
+  }
+
+  .classic-party-card h3 {
+    margin: 5px 0 4px;
+    font-size: 11px;
+  }
+
+  .classic-contact-panel {
+    grid-template-columns: 1fr 1fr 0.72fr 1.4fr;
+    gap: 7px;
+    margin-bottom: 9px;
+    padding: 9px 10px;
+    border-radius: 11px;
+  }
+
+  .classic-delivery-card {
+    display: flex;
+    flex-direction: row;
+    gap: 10px;
+    margin-bottom: 9px;
+    padding: 10px;
+    border-radius: 12px;
+  }
+
+  .classic-delivery-card strong {
+    margin-top: 4px;
+    font-size: 10px;
+  }
+
+  .classic-delivery-card p {
+    font-size: 8px;
+    text-align: right;
+  }
+
+  .classic-goods-card {
+    margin-bottom: 9px;
+    padding: 10px;
+    border-radius: 12px;
+  }
+
+  .classic-section-heading {
+    gap: 5px;
+    padding-bottom: 8px;
+  }
+
+  .classic-section-heading strong {
+    font-size: 12px;
+  }
+
+  .classic-commerce-grid {
+    grid-template-columns: 1.05fr 0.9fr 1fr 1fr;
+    gap: 7px;
+    margin-top: 8px;
+  }
+
+  .classic-commerce-grid div {
+    padding: 8px;
+    border-radius: 10px;
+  }
+
+  .classic-bank-panel {
+    grid-template-columns: minmax(0, 1fr) 160px;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+
+  .classic-bank-list {
+    padding: 10px;
+    border-radius: 12px;
+  }
+
+  .classic-bank-list h4 {
+    margin-bottom: 7px;
+    font-size: 11px;
+  }
+
+  .classic-bank-list p {
+    grid-template-columns: 92px minmax(0, 1fr);
+    gap: 8px;
+    padding: 4px 0;
+  }
+
+  .classic-exchange-card {
+    padding: 10px;
+    border-radius: 12px;
+  }
+
+  .classic-exchange-card strong {
+    margin-top: 7px;
+    font-size: 13px;
+  }
+
+  .classic-closing-panel {
+    grid-template-columns: minmax(0, 1fr) 190px;
+    gap: 16px;
+    padding-top: 10px;
+  }
+
+  .classic-closing-message {
+    line-height: 1.5;
+  }
+
+  .classic-signature-space {
+    height: 52px;
+  }
+
+  .classic-signature-panel strong {
+    font-size: 10px;
+  }
+
+  .classic-quote-hero,
+  .classic-party-panel,
+  .classic-contact-panel,
+  .classic-delivery-card,
+  .classic-goods-card,
+  .classic-bank-panel,
+  .classic-closing-panel {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .quote-sheet-v2 {
+    width: 210mm;
+    min-height: 297mm;
+    padding: 8mm;
+    border-radius: 0;
+    background: #fff8ec;
+  }
+
+  .quote-sheet-v2::before {
+    height: 4px;
+  }
+
+  .quote-v2-header {
+    gap: 8px;
+    padding: 5px 0 10px;
+  }
+
+  .quote-v2-brand {
+    grid-template-columns: 86px minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .quote-v2-logo {
+    max-height: 72px;
+  }
+
+  .quote-v2-brand h2 {
+    margin-bottom: 4px;
+    font-size: 13px;
+  }
+
+  .quote-v2-brand p {
+    font-size: 8.5px;
+  }
+
+  .quote-v2-title {
+    font-size: 24px;
+    letter-spacing: 0.14em;
+  }
+
+  .quote-v2-top {
+    grid-template-columns: minmax(0, 1fr) 210px;
+    gap: 10px;
+    margin-top: 10px;
+  }
+
+  .quote-v2-party {
+    min-height: 72px;
+    padding: 9px 10px;
+    border-radius: 12px;
+    box-shadow: none;
+  }
+
+  .quote-v2-label,
+  .quote-v2-strip span,
+  .quote-v2-delivery span,
+  .quote-v2-section-title,
+  .quote-v2-goods-grid span,
+  .quote-v2-payment dt,
+  .quote-v2-exchange span,
+  .quote-v2-meta dt {
+    font-size: 7.4px;
+  }
+
+  .quote-v2-party strong {
+    margin: 4px 0 3px;
+    font-size: 9.5px;
+  }
+
+  .quote-v2-party span:not(.quote-v2-label),
+  .quote-v2-meta dd,
+  .quote-v2-strip strong,
+  .quote-v2-payment dd,
+  .quote-v2-message,
+  .quote-v2-signature p,
+  .quote-v2-signature span {
+    font-size: 8.6px;
+  }
+
+  .quote-v2-meta {
+    padding: 7px 9px;
+    border-radius: 12px;
+  }
+
+  .quote-v2-meta div {
+    grid-template-columns: 52px minmax(0, 1fr);
+    gap: 6px;
+    padding: 4px 0;
+  }
+
+  .quote-v2-strip {
+    grid-template-columns: 1fr 1fr 2fr;
+    margin-top: 8px;
+    border-radius: 11px;
+  }
+
+  .quote-v2-strip > div {
+    padding: 8px 9px;
+  }
+
+  .quote-v2-delivery {
+    grid-template-columns: minmax(0, 1fr) 210px;
+    gap: 10px;
+    margin-top: 8px;
+    padding: 9px 10px;
+    border-radius: 12px;
+  }
+
+  .quote-v2-delivery strong {
+    margin-top: 4px;
+    font-size: 9.5px;
+  }
+
+  .quote-v2-delivery p {
+    font-size: 7.8px;
+  }
+
+  .quote-v2-goods {
+    margin-top: 8px;
+    padding: 10px;
+    border-radius: 12px;
+  }
+
+  .quote-v2-goods > strong {
+    margin-top: 4px;
+    font-size: 11px;
+  }
+
+  .quote-v2-goods-grid {
+    grid-template-columns: 1.1fr 0.9fr 1fr;
+    gap: 7px;
+    margin-top: 8px;
+  }
+
+  .quote-v2-goods-grid div {
+    padding: 8px;
+    border-radius: 10px;
+  }
+
+  .quote-v2-goods-grid strong {
+    font-size: 9px;
+  }
+
+  .quote-v2-payment {
+    grid-template-columns: minmax(0, 1fr) 160px;
+    gap: 10px;
+    margin-top: 8px;
+  }
+
+  .quote-v2-payment-main,
+  .quote-v2-exchange {
+    padding: 10px;
+    border-radius: 12px;
+  }
+
+  .quote-v2-payment dl {
+    margin-top: 6px;
+  }
+
+  .quote-v2-payment dl div {
+    grid-template-columns: 92px minmax(0, 1fr);
+    gap: 7px;
+    padding: 4px 0;
+  }
+
+  .quote-v2-exchange strong {
+    margin-top: 7px;
+    font-size: 12px;
+  }
+
+  .quote-v2-closing {
+    grid-template-columns: minmax(0, 1fr) 190px;
+    gap: 16px;
+    margin-top: 10px;
+    padding-top: 10px;
+  }
+
+  .quote-v2-message {
+    line-height: 1.55;
+  }
+
+  .quote-v2-sign-space {
+    height: 52px;
+  }
+
+  .quote-v2-signature strong {
+    font-size: 10px;
+  }
+
+  .quote-v2-header,
+  .quote-v2-top,
+  .quote-v2-strip,
+  .quote-v2-delivery,
+  .quote-v2-goods,
+  .quote-v2-payment,
+  .quote-v2-closing {
     break-inside: avoid;
     page-break-inside: avoid;
   }
