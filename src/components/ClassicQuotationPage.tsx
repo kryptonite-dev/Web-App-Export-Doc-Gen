@@ -1,6 +1,14 @@
 import React, { useState } from 'react';
-import { Card, Input, Label, Textarea } from './ui';
+import { Card, Input, Label, Select, Textarea } from './ui';
+import LogoUploader from './LogoUploader';
 import { fmt, todayISO } from '../utils';
+import {
+  INCOTERMS_PRESETS,
+  LINE_ITEM_UNIT_PRESETS,
+  MIN_QTY_UNIT_PRESETS,
+  PAYMENT_PRESETS,
+  UNIT_CUSTOM_LABEL,
+} from '../constants';
 
 type ClassicQuotation = {
   logoDataUrl?: string;
@@ -53,6 +61,7 @@ const FIELD_GUIDE = [
 ];
 
 const DEFAULT_CLASSIC_LOGO_SRC = '/huqkhuun-gold-logo.png';
+const isPreset = (value: string, presets: string[]) => presets.includes(value);
 
 function defaultClassicQuotation(): ClassicQuotation {
   return {
@@ -103,15 +112,6 @@ function blockLines(value: string) {
     .filter(Boolean);
 }
 
-function readAsDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
-
 export default function ClassicQuotationPage() {
   const [quote, setQuote] = useState<ClassicQuotation>(() => defaultClassicQuotation());
 
@@ -119,75 +119,60 @@ export default function ClassicQuotationPage() {
     setQuote((current) => ({ ...current, [key]: value }));
   };
 
-  const handleLogoChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.currentTarget.files?.[0];
-    if (!file) return;
-    if (file.size > 1024 * 1024 * 2) {
-      alert('ไฟล์ใหญ่เกินไป (เกิน 2MB) — กรุณาลดขนาดรูป');
-      return;
-    }
-    const dataUrl = await readAsDataUrl(file);
-    update('logoDataUrl', dataUrl);
-    event.currentTarget.value = '';
-  };
-
   const quantityLabel = `${fmt(quote.minQtyValue, 0)} ${quote.minQtyUnit}`;
+  const deliverySelectValue = isPreset(quote.deliveryTerm, INCOTERMS_PRESETS)
+    ? quote.deliveryTerm
+    : UNIT_CUSTOM_LABEL;
+  const paymentSelectValue = isPreset(quote.paymentTerms, PAYMENT_PRESETS)
+    ? quote.paymentTerms
+    : UNIT_CUSTOM_LABEL;
+  const moqUnitSelectValue = isPreset(quote.minQtyUnit, MIN_QTY_UNIT_PRESETS)
+    ? quote.minQtyUnit
+    : UNIT_CUSTOM_LABEL;
+  const priceUnitSelectValue = isPreset(quote.priceUnit, LINE_ITEM_UNIT_PRESETS)
+    ? quote.priceUnit
+    : UNIT_CUSTOM_LABEL;
 
   return (
     <div className="classic-page">
       <div className="classic-layout workspace classic-workspace">
         <div className="classic-editor editor-column">
-          <section className="classic-control-hero">
-            <div className="proposal-chip-row">
-              <span className="proposal-chip proposal-chip-accent">Classic quotation</span>
-              <span className="proposal-chip">A4 print ready</span>
-            </div>
-            <h2>Quotation controls</h2>
-            <p>
-              แก้ข้อมูลด้านซ้ายแล้วดูหน้าตาเอกสารจริงด้านขวา รูปแบบนี้แยกจาก Proposal
-              Studio เพื่อให้ปรับใบเสนอราคาแบบ classic ได้โดยไม่กระทบ flow เดิม
-            </p>
-          </section>
-
-          <Card title="Brand setup">
-            <div className="grid">
-              <Label>Upload logo</Label>
-              <input className="input" type="file" accept="image/*" onChange={handleLogoChange} />
-              {quote.logoDataUrl ? (
-                <div className="classic-logo-control">
-                  <img src={quote.logoDataUrl} alt="Uploaded logo preview" />
-                  <button
-                    type="button"
-                    className="btn"
-                    onClick={() => update('logoDataUrl', undefined)}
-                  >
-                    Remove
-                  </button>
-                </div>
-              ) : (
-                <span className="muted">
-                  ถ้ายังไม่ upload ระบบจะใช้ HuqKhuun Gold Logo เป็น default
-                </span>
-              )}
-              <div className="grid">
-                <Label>Logo width</Label>
-                <Input
-                  type="number"
-                  min={56}
-                  max={260}
-                  value={quote.logoWidth}
-                  onChange={(event) =>
-                    update(
-                      'logoWidth',
-                      Math.max(56, Math.min(260, Number(event.target.value) || 160)),
-                    )
-                  }
-                />
+          <Card title="Classic quotation readiness">
+            <div className="score-row">
+              <div>
+                <div className="score-label">Input mode</div>
+                <div className="score-value">A4</div>
               </div>
+              <div className="muted">
+                ใช้ field และ card pattern เดียวกับ Proposal Studio ส่วน preview และ PDF
+                ด้านขวายังใช้ layout เอกสารเดิม
+              </div>
+            </div>
+            <div className="checklist">
+              {['Brand and seller profile', 'Buyer and document setup', 'Commercial terms'].map(
+                (item) => (
+                  <div key={item} className="checklist-item ok">
+                    <span className="checklist-dot" />
+                    <span>{item}</span>
+                  </div>
+                ),
+              )}
             </div>
           </Card>
 
-          <Card title="Buyer and seller details">
+          <Card title="Event and seller profile">
+            <LogoUploader
+              value={quote.logoDataUrl}
+              widthPt={quote.logoWidth}
+              onChange={(value) => update('logoDataUrl', value)}
+              onWidthChange={(value) => update('logoWidth', value)}
+            />
+            <span className="muted">
+              ถ้ายังไม่ upload ระบบจะใช้ HuqKhuun Gold Logo เป็น default ใน preview และ PDF
+            </span>
+
+            <div className="section-gap" />
+
             <div className="grid two-col">
               <div className="grid">
                 <Label>Seller company</Label>
@@ -197,10 +182,10 @@ export default function ClassicQuotationPage() {
                 />
               </div>
               <div className="grid">
-                <Label>Buyer company</Label>
+                <Label>From</Label>
                 <Input
-                  value={quote.buyerName}
-                  onChange={(event) => update('buyerName', event.target.value)}
+                  value={quote.fromPerson}
+                  onChange={(event) => update('fromPerson', event.target.value)}
                 />
               </div>
               <div className="grid full-span">
@@ -211,12 +196,16 @@ export default function ClassicQuotationPage() {
                   onChange={(event) => update('sellerAddress', event.target.value)}
                 />
               </div>
-              <div className="grid full-span">
-                <Label>Buyer address</Label>
-                <Textarea
-                  rows={3}
-                  value={quote.buyerAddress}
-                  onChange={(event) => update('buyerAddress', event.target.value)}
+            </div>
+          </Card>
+
+          <Card title="Buyer and document setup">
+            <div className="grid two-col">
+              <div className="grid">
+                <Label>Buyer company</Label>
+                <Input
+                  value={quote.buyerName}
+                  onChange={(event) => update('buyerName', event.target.value)}
                 />
               </div>
               <div className="grid">
@@ -226,15 +215,16 @@ export default function ClassicQuotationPage() {
                   onChange={(event) => update('attention', event.target.value)}
                 />
               </div>
-              <div className="grid">
-                <Label>From</Label>
-                <Input
-                  value={quote.fromPerson}
-                  onChange={(event) => update('fromPerson', event.target.value)}
+              <div className="grid full-span">
+                <Label>Buyer address</Label>
+                <Textarea
+                  rows={4}
+                  value={quote.buyerAddress}
+                  onChange={(event) => update('buyerAddress', event.target.value)}
                 />
               </div>
               <div className="grid">
-                <Label>Date</Label>
+                <Label>Issued date</Label>
                 <Input
                   type="date"
                   value={quote.date}
@@ -256,23 +246,113 @@ export default function ClassicQuotationPage() {
                 />
               </div>
               <div className="grid full-span">
-                <Label>Subject</Label>
+                <Label>Subject line</Label>
                 <Input
                   value={quote.subject}
                   onChange={(event) => update('subject', event.target.value)}
                 />
               </div>
+            </div>
+          </Card>
+
+          <Card title="Commercial terms">
+            <div className="grid two-col">
               <div className="grid full-span">
                 <Label>Term of delivery</Label>
-                <Input
-                  value={quote.deliveryTerm}
-                  onChange={(event) => update('deliveryTerm', event.target.value)}
+                <Select
+                  value={deliverySelectValue}
+                  onChange={(value) => {
+                    if (value === UNIT_CUSTOM_LABEL) {
+                      update(
+                        'deliveryTerm',
+                        isPreset(quote.deliveryTerm, INCOTERMS_PRESETS) ? '' : quote.deliveryTerm,
+                      );
+                      return;
+                    }
+                    update('deliveryTerm', value);
+                  }}
+                  options={[...INCOTERMS_PRESETS, UNIT_CUSTOM_LABEL]}
+                  placeholder="Select delivery preset"
                 />
+                {deliverySelectValue === UNIT_CUSTOM_LABEL ? (
+                  <Input
+                    value={quote.deliveryTerm}
+                    onChange={(event) => update('deliveryTerm', event.target.value)}
+                    placeholder="Or type a custom delivery term"
+                  />
+                ) : null}
+              </div>
+              <div className="grid full-span">
+                <Label>Payment terms</Label>
+                <Select
+                  value={paymentSelectValue}
+                  onChange={(value) => {
+                    if (value === UNIT_CUSTOM_LABEL) {
+                      update(
+                        'paymentTerms',
+                        isPreset(quote.paymentTerms, PAYMENT_PRESETS) ? '' : quote.paymentTerms,
+                      );
+                      return;
+                    }
+                    update('paymentTerms', value);
+                  }}
+                  options={[...PAYMENT_PRESETS, UNIT_CUSTOM_LABEL]}
+                  placeholder="Select payment preset"
+                />
+                {paymentSelectValue === UNIT_CUSTOM_LABEL ? (
+                  <Input
+                    value={quote.paymentTerms}
+                    onChange={(event) => update('paymentTerms', event.target.value)}
+                    placeholder="Or type custom payment terms"
+                  />
+                ) : null}
+              </div>
+              <div className="grid">
+                <Label>Exchange rate</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={quote.fxRate}
+                  onChange={(event) => update('fxRate', Number(event.target.value) || 0)}
+                />
+              </div>
+              <div className="grid">
+                <Label>MOQ value</Label>
+                <Input
+                  type="number"
+                  value={quote.minQtyValue}
+                  onChange={(event) => update('minQtyValue', Number(event.target.value) || 0)}
+                />
+              </div>
+              <div className="grid">
+                <Label>MOQ unit</Label>
+                <Select
+                  value={moqUnitSelectValue}
+                  onChange={(value) => {
+                    if (value === UNIT_CUSTOM_LABEL) {
+                      update(
+                        'minQtyUnit',
+                        isPreset(quote.minQtyUnit, MIN_QTY_UNIT_PRESETS) ? '' : quote.minQtyUnit,
+                      );
+                      return;
+                    }
+                    update('minQtyUnit', value);
+                  }}
+                  options={[...MIN_QTY_UNIT_PRESETS, UNIT_CUSTOM_LABEL]}
+                  placeholder="Select unit"
+                />
+                {moqUnitSelectValue === UNIT_CUSTOM_LABEL ? (
+                  <Input
+                    value={quote.minQtyUnit}
+                    onChange={(event) => update('minQtyUnit', event.target.value)}
+                    placeholder="Custom MOQ unit"
+                  />
+                ) : null}
               </div>
             </div>
           </Card>
 
-          <Card title="Product and commercial terms">
+          <Card title="Products and buyer-facing proof">
             <div className="grid two-col">
               <div className="grid full-span">
                 <Label>Description of goods</Label>
@@ -307,46 +387,33 @@ export default function ClassicQuotationPage() {
               </div>
               <div className="grid">
                 <Label>Price unit</Label>
-                <Input
-                  value={quote.priceUnit}
-                  onChange={(event) => update('priceUnit', event.target.value)}
+                <Select
+                  value={priceUnitSelectValue}
+                  onChange={(value) => {
+                    if (value === UNIT_CUSTOM_LABEL) {
+                      update(
+                        'priceUnit',
+                        isPreset(quote.priceUnit, LINE_ITEM_UNIT_PRESETS) ? '' : quote.priceUnit,
+                      );
+                      return;
+                    }
+                    update('priceUnit', value);
+                  }}
+                  options={[...LINE_ITEM_UNIT_PRESETS, UNIT_CUSTOM_LABEL]}
+                  placeholder="Choose unit"
                 />
-              </div>
-              <div className="grid">
-                <Label>MOQ value</Label>
-                <Input
-                  type="number"
-                  value={quote.minQtyValue}
-                  onChange={(event) => update('minQtyValue', Number(event.target.value) || 0)}
-                />
-              </div>
-              <div className="grid">
-                <Label>MOQ unit</Label>
-                <Input
-                  value={quote.minQtyUnit}
-                  onChange={(event) => update('minQtyUnit', event.target.value)}
-                />
-              </div>
-              <div className="grid">
-                <Label>Exchange rate</Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  value={quote.fxRate}
-                  onChange={(event) => update('fxRate', Number(event.target.value) || 0)}
-                />
-              </div>
-              <div className="grid">
-                <Label>Payment terms</Label>
-                <Input
-                  value={quote.paymentTerms}
-                  onChange={(event) => update('paymentTerms', event.target.value)}
-                />
+                {priceUnitSelectValue === UNIT_CUSTOM_LABEL ? (
+                  <Input
+                    value={quote.priceUnit}
+                    onChange={(event) => update('priceUnit', event.target.value)}
+                    placeholder="Custom price unit"
+                  />
+                ) : null}
               </div>
             </div>
           </Card>
 
-          <Card title="Bank and signature">
+          <Card title="Closing and signature">
             <div className="grid">
               <Label>Seller bank</Label>
               <Input
@@ -366,6 +433,24 @@ export default function ClassicQuotationPage() {
               />
               <div className="grid two-col">
                 <div className="grid">
+                  <Label>Closing line 1</Label>
+                  <Textarea
+                    rows={3}
+                    value={quote.closingLine1}
+                    onChange={(event) => update('closingLine1', event.target.value)}
+                  />
+                </div>
+                <div className="grid">
+                  <Label>Closing line 2</Label>
+                  <Textarea
+                    rows={3}
+                    value={quote.closingLine2}
+                    onChange={(event) => update('closingLine2', event.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="grid two-col">
+                <div className="grid">
                   <Label>Signature name</Label>
                   <Input
                     value={quote.signName}
@@ -383,8 +468,7 @@ export default function ClassicQuotationPage() {
             </div>
           </Card>
 
-          <section className="classic-guide proposal-card">
-            <h3>รายละเอียดในใบเสนอราคาเพื่อการส่งออกเบื้องต้น (Quotation)</h3>
+          <Card title="Field guide">
             <div className="classic-guide-grid">
               {FIELD_GUIDE.map((item, index) => (
                 <React.Fragment key={item}>
@@ -393,7 +477,7 @@ export default function ClassicQuotationPage() {
                 </React.Fragment>
               ))}
             </div>
-          </section>
+          </Card>
         </div>
 
         <div className="classic-preview-column preview-column">
