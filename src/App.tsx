@@ -6,6 +6,7 @@ import LogoUploader from './components/LogoUploader';
 import ClientProposalView from './components/ClientProposalView';
 import LoadingCalculatorPage from './components/LoadingCalculatorPage';
 import QuickQuotePage from './components/QuickQuotePage';
+import ClassicQuotationPage from './components/ClassicQuotationPage';
 import { Card, Input, Label, Select, Textarea } from './components/ui';
 import {
   GOODS_DESCRIPTION_PRESETS,
@@ -17,7 +18,7 @@ import {
 import { CommonDoc, Currency, Party } from './types';
 import { todayISO } from './utils';
 
-type AppPage = 'proposal' | 'loading' | 'quote';
+type AppPage = 'proposal' | 'loading' | 'quote' | 'classic';
 type StatusState =
   | {
       text: string;
@@ -268,7 +269,13 @@ function getRouteContext() {
   const params = new URLSearchParams(window.location.search);
   const pageParam = params.get('page');
   const page: AppPage =
-    pageParam === 'loading' ? 'loading' : pageParam === 'quote' ? 'quote' : 'proposal';
+    pageParam === 'loading'
+      ? 'loading'
+      : pageParam === 'quote'
+        ? 'quote'
+        : pageParam === 'classic'
+          ? 'classic'
+          : 'proposal';
   return {
     isClientView: params.get('view') === 'client',
     sharedDoc: decodeSharePayload(params.get('payload')),
@@ -407,6 +414,7 @@ function App() {
   const [page, setPage] = useState<AppPage>(route.page);
   const [loadingCalculatorKey, setLoadingCalculatorKey] = useState(0);
   const [quickQuoteKey, setQuickQuoteKey] = useState(0);
+  const [classicQuotationKey, setClassicQuotationKey] = useState(0);
   const [doc, setDoc] = useState<CommonDoc>(() => {
     if (route.sharedDoc) return hydrateDoc(route.sharedDoc);
     return hydrateDoc(safeParseDraft(localStorage.getItem(STORAGE_KEY)));
@@ -426,6 +434,8 @@ function App() {
         ? 'Export Loading Calculator'
         : page === 'quote'
           ? 'FCA / FOB Quick Quote'
+          : page === 'classic'
+            ? 'Classic Export Quotation'
           : 'ThaiFex Sales Proposal Studio';
   }, [doc.subject, page, route.isClientView]);
 
@@ -646,6 +656,8 @@ function App() {
       url.searchParams.set('page', 'loading');
     } else if (next === 'quote') {
       url.searchParams.set('page', 'quote');
+    } else if (next === 'classic') {
+      url.searchParams.set('page', 'classic');
     } else {
       url.searchParams.delete('page');
     }
@@ -705,12 +717,20 @@ function App() {
             >
               FCA / FOB quote
             </button>
+            <button
+              className={`btn ${page === 'classic' ? 'primary' : ''}`}
+              onClick={() => handlePageChange('classic')}
+            >
+              Classic quotation
+            </button>
           </div>
           <div className="app-kicker">
             {page === 'loading'
               ? 'Export loading reference'
               : page === 'quote'
                 ? 'Trade-show quick quote'
+                : page === 'classic'
+                  ? 'Excel-style export quotation'
                 : 'ThaiFex sales workflow'}
           </div>
           <h1>
@@ -718,6 +738,8 @@ function App() {
               ? 'Coconut Blossom Export Loading Calculator'
               : page === 'quote'
                 ? 'FCA / FOB Quick Quote'
+                : page === 'classic'
+                  ? 'Classic Export Quotation'
                 : 'ThaiFex Sales Proposal Studio'}
           </h1>
           <p>
@@ -725,6 +747,8 @@ function App() {
               ? 'Check cartons per pallet, palletized loading, and loose-load capacity in a separate customer-facing calculator during container discussions.'
               : page === 'quote'
                 ? 'Answer EXW, FCA, and FOB price questions quickly, convert trade-show THB assumptions into USD, and copy USD / CTN values back into the quotation.'
+                : page === 'classic'
+                  ? 'Create a separate Excel-style export quotation that follows the attached workbook layout without touching the existing buyer proposal flow.'
                 : 'Prepare one buyer-ready quotation, open it as an online proposal on a second screen, and export the same content to PDF without reformatting.'}
           </p>
         </div>
@@ -763,10 +787,16 @@ function App() {
                 onClick={() =>
                   page === 'loading'
                     ? setLoadingCalculatorKey((current) => current + 1)
-                    : setQuickQuoteKey((current) => current + 1)
+                    : page === 'quote'
+                      ? setQuickQuoteKey((current) => current + 1)
+                      : setClassicQuotationKey((current) => current + 1)
                 }
               >
-                {page === 'loading' ? 'Reset calculator' : 'Reset quote'}
+                {page === 'loading'
+                  ? 'Reset calculator'
+                  : page === 'quote'
+                    ? 'Reset quote'
+                    : 'Reset classic quotation'}
               </button>
             </>
           )}
@@ -1212,8 +1242,10 @@ function App() {
         </div>
       ) : page === 'loading' ? (
         <LoadingCalculatorPage key={loadingCalculatorKey} />
-      ) : (
+      ) : page === 'quote' ? (
         <QuickQuotePage key={quickQuoteKey} />
+      ) : (
+        <ClassicQuotationPage key={classicQuotationKey} />
       )}
     </div>
   );
