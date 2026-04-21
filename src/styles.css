@@ -971,6 +971,35 @@ textarea.input {
   margin-top: 18px;
 }
 
+.quick-compare-table td {
+  min-width: 150px;
+}
+
+.quick-compare-table td:first-child {
+  min-width: 180px;
+}
+
+.quick-compare-table td:last-child {
+  min-width: 260px;
+  line-height: 1.55;
+}
+
+.quick-price-cell {
+  display: grid;
+  gap: 5px;
+}
+
+.quick-price-cell strong {
+  font-size: 14px;
+}
+
+.quick-price-cell span,
+.quick-table-sub {
+  color: var(--ink-soft);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 .proposal-total-pill {
   display: inline-flex;
   align-items: center;

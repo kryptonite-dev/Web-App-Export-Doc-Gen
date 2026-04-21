@@ -110,6 +110,103 @@ function copyNumber(value: number, digits = 2) {
   return value.toFixed(digits).replace(/\.?0+$/, '');
 }
 
+function buildQuoteCalculation(form: QuoteForm, isFcl: boolean) {
+  const totalBottles = isFcl
+    ? Number(form.totalBottles) || 0
+    : (Number(form.bottlesPerCarton) || 0) *
+      (Number(form.cartonsPerPallet) || 0) *
+      (Number(form.pallets) || 0);
+  const bottlesPerCarton = Number(form.bottlesPerCarton) || 0;
+  const totalCartons = bottlesPerCarton ? totalBottles / bottlesPerCarton : 0;
+  const fxRate = Number(form.fxRate) || 0;
+  const exwPrice = Number(form.exwPrice) || 0;
+  const fcaMin = Number(form.fcaMin) || 0;
+  const fcaMax = Number(form.fcaMax) || 0;
+  const fobMin = Number(form.fobMin) || 0;
+  const fobMax = Number(form.fobMax) || 0;
+
+  const exwShipment = exwPrice * totalBottles;
+  const fcaUpliftMinPb = totalBottles ? fcaMin / totalBottles : 0;
+  const fcaUpliftMaxPb = totalBottles ? fcaMax / totalBottles : 0;
+  const fcaUpliftMidPb = (fcaUpliftMinPb + fcaUpliftMaxPb) / 2;
+  const fobUpliftMinPb = totalBottles ? fobMin / totalBottles : 0;
+  const fobUpliftMaxPb = totalBottles ? fobMax / totalBottles : 0;
+  const fobUpliftMidPb = (fobUpliftMinPb + fobUpliftMaxPb) / 2;
+
+  const fcaPriceMin = exwPrice + fcaUpliftMinPb;
+  const fcaPriceMid = exwPrice + fcaUpliftMidPb;
+  const fcaPriceMax = exwPrice + fcaUpliftMaxPb;
+  const fobPriceMin = exwPrice + fobUpliftMinPb;
+  const fobPriceMid = exwPrice + fobUpliftMidPb;
+  const fobPriceMax = exwPrice + fobUpliftMaxPb;
+
+  const fcaShipmentMin = exwShipment + fcaMin;
+  const fcaShipmentMid = exwShipment + (fcaMin + fcaMax) / 2;
+  const fcaShipmentMax = exwShipment + fcaMax;
+  const fobShipmentMin = exwShipment + fobMin;
+  const fobShipmentMid = exwShipment + (fobMin + fobMax) / 2;
+  const fobShipmentMax = exwShipment + fobMax;
+
+  const exwRounded = exwPrice;
+  const fcaRounded = roundHalf(fcaPriceMid);
+  const fobRounded = roundHalf(fobPriceMid);
+
+  return {
+    totalBottles,
+    totalCartons,
+    fxRate,
+    exwShipment,
+    exwRounded,
+    fcaRounded,
+    fobRounded,
+    fcaPriceMin,
+    fcaPriceMax,
+    fobPriceMin,
+    fobPriceMax,
+    fcaShipmentMin,
+    fcaShipmentMid,
+    fcaShipmentMax,
+    fobShipmentMin,
+    fobShipmentMid,
+    fobShipmentMax,
+    fcaUpliftMinPb,
+    fcaUpliftMaxPb,
+    fobUpliftMinPb,
+    fobUpliftMaxPb,
+    exwUsdBottle: usd(exwRounded, fxRate),
+    fcaUsdBottle: usd(fcaRounded, fxRate),
+    fobUsdBottle: usd(fobRounded, fxRate),
+    exwUsdCarton: usd(exwRounded * bottlesPerCarton, fxRate),
+    fcaUsdCarton: usd(fcaRounded * bottlesPerCarton, fxRate),
+    fobUsdCarton: usd(fobRounded * bottlesPerCarton, fxRate),
+  };
+}
+
+function recommendedUseForScenario(key: ScenarioKey) {
+  if (key === 'fcl20') {
+    return 'FOB Bangkok Port for full-container planning. FCA is possible but should be checked with the forwarder.';
+  }
+  if (key === 'trial') {
+    return 'FCA Bangkok / Khlong Toei for a low-volume trial shipment.';
+  }
+  return 'FCA Bangkok / Khlong Toei for mixed-container discussions. Confirm FOB after booking details are clear.';
+}
+
+function ScenarioPriceCell({
+  thbBottle,
+  usdCarton,
+}: {
+  thbBottle: number;
+  usdCarton: number;
+}) {
+  return (
+    <div className="quick-price-cell">
+      <strong>{fmt(thbBottle)} THB / bottle</strong>
+      <span>USD {fmt(usdCarton, 2)} / CTN</span>
+    </div>
+  );
+}
+
 function PriceBox({
   tone,
   title,
@@ -173,77 +270,21 @@ export default function QuickQuotePage() {
 
   const isFcl = scenarioKey === 'fcl20';
 
-  const calculation = useMemo(() => {
-    const totalBottles = isFcl
-      ? Number(form.totalBottles) || 0
-      : (Number(form.bottlesPerCarton) || 0) *
-        (Number(form.cartonsPerPallet) || 0) *
-        (Number(form.pallets) || 0);
-    const bottlesPerCarton = Number(form.bottlesPerCarton) || 0;
-    const totalCartons = bottlesPerCarton ? totalBottles / bottlesPerCarton : 0;
-    const fxRate = Number(form.fxRate) || 0;
-    const exwPrice = Number(form.exwPrice) || 0;
-    const fcaMin = Number(form.fcaMin) || 0;
-    const fcaMax = Number(form.fcaMax) || 0;
-    const fobMin = Number(form.fobMin) || 0;
-    const fobMax = Number(form.fobMax) || 0;
-
-    const exwShipment = exwPrice * totalBottles;
-    const fcaUpliftMinPb = totalBottles ? fcaMin / totalBottles : 0;
-    const fcaUpliftMaxPb = totalBottles ? fcaMax / totalBottles : 0;
-    const fcaUpliftMidPb = (fcaUpliftMinPb + fcaUpliftMaxPb) / 2;
-    const fobUpliftMinPb = totalBottles ? fobMin / totalBottles : 0;
-    const fobUpliftMaxPb = totalBottles ? fobMax / totalBottles : 0;
-    const fobUpliftMidPb = (fobUpliftMinPb + fobUpliftMaxPb) / 2;
-
-    const fcaPriceMin = exwPrice + fcaUpliftMinPb;
-    const fcaPriceMid = exwPrice + fcaUpliftMidPb;
-    const fcaPriceMax = exwPrice + fcaUpliftMaxPb;
-    const fobPriceMin = exwPrice + fobUpliftMinPb;
-    const fobPriceMid = exwPrice + fobUpliftMidPb;
-    const fobPriceMax = exwPrice + fobUpliftMaxPb;
-
-    const fcaShipmentMin = exwShipment + fcaMin;
-    const fcaShipmentMid = exwShipment + (fcaMin + fcaMax) / 2;
-    const fcaShipmentMax = exwShipment + fcaMax;
-    const fobShipmentMin = exwShipment + fobMin;
-    const fobShipmentMid = exwShipment + (fobMin + fobMax) / 2;
-    const fobShipmentMax = exwShipment + fobMax;
-
-    const exwRounded = exwPrice;
-    const fcaRounded = roundHalf(fcaPriceMid);
-    const fobRounded = roundHalf(fobPriceMid);
-
-    return {
-      totalBottles,
-      totalCartons,
-      fxRate,
-      exwShipment,
-      exwRounded,
-      fcaRounded,
-      fobRounded,
-      fcaPriceMin,
-      fcaPriceMax,
-      fobPriceMin,
-      fobPriceMax,
-      fcaShipmentMin,
-      fcaShipmentMid,
-      fcaShipmentMax,
-      fobShipmentMin,
-      fobShipmentMid,
-      fobShipmentMax,
-      fcaUpliftMinPb,
-      fcaUpliftMaxPb,
-      fobUpliftMinPb,
-      fobUpliftMaxPb,
-      exwUsdBottle: usd(exwRounded, fxRate),
-      fcaUsdBottle: usd(fcaRounded, fxRate),
-      fobUsdBottle: usd(fobRounded, fxRate),
-      exwUsdCarton: usd(exwRounded * bottlesPerCarton, fxRate),
-      fcaUsdCarton: usd(fcaRounded * bottlesPerCarton, fxRate),
-      fobUsdCarton: usd(fobRounded * bottlesPerCarton, fxRate),
-    };
-  }, [form, isFcl]);
+  const calculation = useMemo(() => buildQuoteCalculation(form, isFcl), [form, isFcl]);
+  const scenarioComparison = useMemo(
+    () =>
+      SCENARIO_ORDER.map((key) => {
+        const scenario = SCENARIOS[key];
+        const scenarioForm = scenarioToForm(key);
+        return {
+          key,
+          scenario,
+          calculation: buildQuoteCalculation(scenarioForm, key === 'fcl20'),
+          recommendedUse: recommendedUseForScenario(key),
+        };
+      }),
+    []
+  );
 
   const loadScenario = (next: ScenarioKey) => {
     setScenarioKey(next);
@@ -580,6 +621,63 @@ export default function QuickQuotePage() {
         <div className="calc-note">
           Working assumptions: 1 carton = {fmt(form.bottlesPerCarton, 0)} bottles,
           1 pallet = {fmt(form.cartonsPerPallet, 0)} cartons. USD values use the fixed FX rate entered above.
+        </div>
+      </Card>
+
+      <Card className="quick-table-card">
+        <div className="calc-section-head">
+          <div>
+            <div className="preview-eyebrow">Scenario Comparison</div>
+            <h2>Trial / MOQ / ThaiFex / 20FCL price map</h2>
+          </div>
+        </div>
+        <div className="calc-table-wrap">
+          <table className="calc-table quick-compare-table">
+            <thead>
+              <tr>
+                <th>Scenario</th>
+                <th>EXW</th>
+                <th>FCA</th>
+                <th>FOB</th>
+                <th>Recommended use</th>
+              </tr>
+            </thead>
+            <tbody>
+              {scenarioComparison.map(({ key, scenario, calculation: row, recommendedUse }) => (
+                <tr key={key}>
+                  <td>
+                    <strong>{scenario.label}</strong>
+                    <div className="quick-table-sub">
+                      {fmt(row.totalCartons, 0)} CTN / {fmt(row.totalBottles, 0)} bottles
+                    </div>
+                  </td>
+                  <td>
+                    <ScenarioPriceCell
+                      thbBottle={row.exwRounded}
+                      usdCarton={row.exwUsdCarton}
+                    />
+                  </td>
+                  <td>
+                    <ScenarioPriceCell
+                      thbBottle={row.fcaRounded}
+                      usdCarton={row.fcaUsdCarton}
+                    />
+                  </td>
+                  <td>
+                    <ScenarioPriceCell
+                      thbBottle={row.fobRounded}
+                      usdCarton={row.fobUsdCarton}
+                    />
+                  </td>
+                  <td>{recommendedUse}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="calc-note">
+          This table is a fast scenario map using each package default. Use the cards above when
+          the buyer wants a live edited quote for one selected shipment.
         </div>
       </Card>
     </div>
