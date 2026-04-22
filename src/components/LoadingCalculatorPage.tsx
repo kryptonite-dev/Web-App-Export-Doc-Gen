@@ -62,7 +62,7 @@ const CARTON_PRESETS: CartonPreset[] = [
     label: '30g20pcs3ly',
     length: 310,
     width: 360,
-    height: 130,
+    height: 140,
     piecesPerCarton: 20,
   },
   {
