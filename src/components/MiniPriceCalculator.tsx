@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Copy } from 'lucide-react';
 import { Input, Label } from './ui';
 import { fmt } from '../utils';
@@ -73,10 +73,46 @@ function ResultTile({
   );
 }
 
-export default function MiniPriceCalculator({ fxRate }: { fxRate?: number }) {
-  const [pricePerBottleThb, setPricePerBottleThb] = useState('0');
-  const [bottlesPerCarton, setBottlesPerCarton] = useState('24');
+type PersistedCalculator = {
+  pricePerBottleThb?: string;
+  bottlesPerCarton?: string;
+};
+
+function readPersistedCalculator(storageKey?: string): PersistedCalculator {
+  if (!storageKey) return {};
+  try {
+    return JSON.parse(localStorage.getItem(storageKey) || '{}') as PersistedCalculator;
+  } catch {
+    return {};
+  }
+}
+
+export default function MiniPriceCalculator({
+  fxRate,
+  storageKey,
+}: {
+  fxRate?: number;
+  storageKey?: string;
+}) {
+  const persisted = readPersistedCalculator(storageKey);
+  const [pricePerBottleThb, setPricePerBottleThb] = useState(
+    persisted.pricePerBottleThb || '0',
+  );
+  const [bottlesPerCarton, setBottlesPerCarton] = useState(
+    persisted.bottlesPerCarton || '24',
+  );
   const [status, setStatus] = useState('');
+
+  useEffect(() => {
+    if (!storageKey) return;
+    localStorage.setItem(
+      storageKey,
+      JSON.stringify({
+        pricePerBottleThb,
+        bottlesPerCarton,
+      }),
+    );
+  }, [bottlesPerCarton, pricePerBottleThb, storageKey]);
 
   const bottlePrice = Number(pricePerBottleThb) || 0;
   const bottleCount = Number(bottlesPerCarton) || 0;

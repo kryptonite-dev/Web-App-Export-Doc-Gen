@@ -6,7 +6,10 @@ import LogoUploader from './components/LogoUploader';
 import ClientProposalView from './components/ClientProposalView';
 import LoadingCalculatorPage from './components/LoadingCalculatorPage';
 import QuickQuotePage from './components/QuickQuotePage';
-import ClassicQuotationPage from './components/ClassicQuotationPage';
+import ClassicQuotationPage, {
+  CLASSIC_PRICE_CALCULATOR_STORAGE_KEY,
+  CLASSIC_QUOTATION_STORAGE_KEY,
+} from './components/ClassicQuotationPage';
 import { Card, Input, Label, Select, Textarea } from './components/ui';
 import {
   GOODS_DESCRIPTION_PRESETS,
@@ -789,7 +792,9 @@ function App() {
                     ? setLoadingCalculatorKey((current) => current + 1)
                     : page === 'quote'
                       ? setQuickQuoteKey((current) => current + 1)
-                      : setClassicQuotationKey((current) => current + 1)
+                      : (localStorage.removeItem(CLASSIC_QUOTATION_STORAGE_KEY),
+                        localStorage.removeItem(CLASSIC_PRICE_CALCULATOR_STORAGE_KEY),
+                        setClassicQuotationKey((current) => current + 1))
                 }
               >
                 {page === 'loading'

@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { Check, Copy } from 'lucide-react';
 import { Card, Input, Label, Select, Textarea } from './ui';
 import LogoUploader from './LogoUploader';
+import MiniPriceCalculator from './MiniPriceCalculator';
 import { fmt, todayISO } from '../utils';
 import {
   INCOTERMS_PRESETS,
@@ -64,14 +66,17 @@ const FIELD_GUIDE = [
 ];
 
 const DEFAULT_CLASSIC_LOGO_SRC = '/huqkhuun-gold-logo.png';
+export const CLASSIC_QUOTATION_STORAGE_KEY = 'classic-export-quotation-draft-v2';
+export const CLASSIC_PRICE_CALCULATOR_STORAGE_KEY = 'classic-mini-price-calculator-v1';
 const isPreset = (value: string, presets: string[]) => presets.includes(value);
 const CURRENCY_OPTIONS = ['USD', 'THB', 'EUR', 'AED'];
 const INQUIRY_TYPE_OPTIONS = ['MOQ', 'QUOTE'];
 
-type PdfStatus = {
+type ClassicStatus = {
   lead: string;
   filename: string;
   tail: string;
+  copied?: boolean;
 };
 
 function sanitizeFilename(value: string) {
@@ -92,10 +97,17 @@ function formatFilenameTimestamp(date = new Date()) {
   ].join('-') + `_${pad(date.getHours())}-${pad(date.getMinutes())}-${pad(date.getSeconds())}`;
 }
 
+function formatQuantityFilenameValue(value: number) {
+  if (!Number.isFinite(value)) return '0';
+  return Number.isInteger(value)
+    ? String(value)
+    : value.toFixed(3).replace(/\.?0+$/, '').replace('.', '-');
+}
+
 function buildClassicPdfBaseName(quote: ClassicQuotation, date = new Date()) {
   const buyer = quote.buyerName || quote.attention || quote.refNo || 'classic-quotation';
   const activeQuantity = getClassicQuantityDisplay(quote);
-  const qty = `${fmt(activeQuantity.value, 0)}${activeQuantity.unit || 'unit'}`
+  const qty = `${formatQuantityFilenameValue(activeQuantity.value)}${activeQuantity.unit || 'unit'}`
     .toLowerCase()
     .replace(/[^a-z0-9]+/gi, '-')
     .replace(/^-+|-+$/g, '');
@@ -160,6 +172,32 @@ function defaultClassicQuotation(): ClassicQuotation {
   };
 }
 
+function hydrateClassicQuotation(source?: Partial<ClassicQuotation> | null): ClassicQuotation {
+  return {
+    ...defaultClassicQuotation(),
+    ...(source || {}),
+  };
+}
+
+function readClassicDraft() {
+  try {
+    return hydrateClassicQuotation(JSON.parse(localStorage.getItem(CLASSIC_QUOTATION_STORAGE_KEY) || 'null'));
+  } catch {
+    return defaultClassicQuotation();
+  }
+}
+
+function triggerDownload(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.click();
+  window.setTimeout(() => {
+    URL.revokeObjectURL(url);
+  }, 60_000);
+}
+
 function formatDisplayDate(value: string) {
   const date = value ? new Date(`${value}T00:00:00`) : new Date();
   if (Number.isNaN(date.getTime())) return value;
@@ -175,13 +213,17 @@ function blockLines(value: string) {
 }
 
 export default function ClassicQuotationPage() {
-  const [quote, setQuote] = useState<ClassicQuotation>(() => defaultClassicQuotation());
+  const [quote, setQuote] = useState<ClassicQuotation>(() => readClassicDraft());
   const [isOpeningPdf, setIsOpeningPdf] = useState(false);
-  const [pdfStatus, setPdfStatus] = useState<PdfStatus | null>(null);
+  const [status, setStatus] = useState<ClassicStatus | null>(null);
 
   const update = <K extends keyof ClassicQuotation>(key: K, value: ClassicQuotation[K]) => {
     setQuote((current) => ({ ...current, [key]: value }));
   };
+
+  useEffect(() => {
+    localStorage.setItem(CLASSIC_QUOTATION_STORAGE_KEY, JSON.stringify(quote));
+  }, [quote]);
 
   const activeQuantity = getClassicQuantityDisplay(quote);
   const quantityLabel = `${fmt(activeQuantity.value, 0)} ${activeQuantity.unit}`;
@@ -202,6 +244,49 @@ export default function ClassicQuotationPage() {
     : UNIT_CUSTOM_LABEL;
   const thbQuote = isThbQuote(quote.priceCurrency);
 
+  const handleCopyStatusFilename = async () => {
+    if (!status?.filename) return;
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(status.filename);
+      } else {
+        window.prompt('Copy filename', status.filename);
+      }
+      setStatus((current) => (current ? { ...current, copied: true } : current));
+    } catch (error) {
+      console.error(error);
+      window.prompt('Copy filename', status.filename);
+    }
+  };
+
+  const handleSaveClassicQuotation = () => {
+    const savedAt = new Date();
+    const fileBaseName = buildClassicPdfBaseName(quote, savedAt);
+    const filename = `${fileBaseName}.json`;
+    triggerDownload(
+      new Blob(
+        [
+          JSON.stringify(
+            {
+              savedAt: savedAt.toISOString(),
+              quote,
+            },
+            null,
+            2,
+          ),
+        ],
+        { type: 'application/json' },
+      ),
+      filename,
+    );
+    setStatus({
+      lead: 'Quotation data saved as',
+      filename: fileBaseName,
+      tail: '.json.',
+      copied: false,
+    });
+  };
+
   const handleOpenClassicPdf = async () => {
     const popup = window.open('', '_blank');
     if (popup) {
@@ -212,7 +297,7 @@ export default function ClassicQuotationPage() {
 
     try {
       setIsOpeningPdf(true);
-      setPdfStatus(null);
+      setStatus(null);
       const [{ pdf }, { default: ClassicQuotationPDF }] = await Promise.all([
         import('@react-pdf/renderer'),
         import('./PDF/ClassicQuotationPDF'),
@@ -244,15 +329,16 @@ export default function ClassicQuotationPage() {
         URL.revokeObjectURL(url);
       }, 10 * 60_000);
 
-      setPdfStatus({
+      setStatus({
         lead: 'PDF opened in a new tab as',
         filename: fileBaseName,
         tail: '.pdf. Use the browser PDF viewer to download if needed.',
+        copied: false,
       });
     } catch (error) {
       if (popup) popup.close();
       console.error(error);
-      setPdfStatus({
+      setStatus({
         lead: 'PDF export failed.',
         filename: '',
         tail: ' Check the console for details.',
@@ -542,64 +628,71 @@ export default function ClassicQuotationPage() {
           </Card>
 
           <Card title="Products and buyer-facing proof">
-            <div className="grid two-col">
-              <div className="grid full-span">
-                <Label>Description of goods</Label>
-                <Textarea
-                  rows={3}
-                  value={quote.description}
-                  onChange={(event) => update('description', event.target.value)}
-                />
-              </div>
-              <div className="grid">
-                <Label>Shipping mark</Label>
-                <Input
-                  value={quote.shippingMark}
-                  onChange={(event) => update('shippingMark', event.target.value)}
-                />
-              </div>
-              <div className="grid">
-                <Label>Price currency</Label>
-                <Select
-                  value={quote.priceCurrency}
-                  onChange={(value) => update('priceCurrency', value)}
-                  options={CURRENCY_OPTIONS}
-                  placeholder="Select currency"
-                />
-              </div>
-              <div className="grid">
-                <Label>Price / unit</Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  value={quote.priceValue}
-                  onChange={(event) => update('priceValue', Number(event.target.value) || 0)}
-                />
-              </div>
-              <div className="grid">
-                <Label>Price unit</Label>
-                <Select
-                  value={priceUnitSelectValue}
-                  onChange={(value) => {
-                    if (value === UNIT_CUSTOM_LABEL) {
-                      update(
-                        'priceUnit',
-                        isPreset(quote.priceUnit, LINE_ITEM_UNIT_PRESETS) ? '' : quote.priceUnit,
-                      );
-                      return;
-                    }
-                    update('priceUnit', value);
-                  }}
-                  options={[...LINE_ITEM_UNIT_PRESETS, UNIT_CUSTOM_LABEL]}
-                  placeholder="Choose unit"
-                />
-                {priceUnitSelectValue === UNIT_CUSTOM_LABEL ? (
-                  <Input
-                    value={quote.priceUnit}
-                    onChange={(event) => update('priceUnit', event.target.value)}
-                    placeholder="Custom price unit"
+            <div className="grid" style={{ gap: 16 }}>
+              <MiniPriceCalculator
+                fxRate={quote.fxRate}
+                storageKey={CLASSIC_PRICE_CALCULATOR_STORAGE_KEY}
+              />
+
+              <div className="grid two-col">
+                <div className="grid full-span">
+                  <Label>Description of goods</Label>
+                  <Textarea
+                    rows={3}
+                    value={quote.description}
+                    onChange={(event) => update('description', event.target.value)}
                   />
-                ) : null}
+                </div>
+                <div className="grid">
+                  <Label>Shipping mark</Label>
+                  <Input
+                    value={quote.shippingMark}
+                    onChange={(event) => update('shippingMark', event.target.value)}
+                  />
+                </div>
+                <div className="grid">
+                  <Label>Price currency</Label>
+                  <Select
+                    value={quote.priceCurrency}
+                    onChange={(value) => update('priceCurrency', value)}
+                    options={CURRENCY_OPTIONS}
+                    placeholder="Select currency"
+                  />
+                </div>
+                <div className="grid">
+                  <Label>Price / unit</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={quote.priceValue}
+                    onChange={(event) => update('priceValue', Number(event.target.value) || 0)}
+                  />
+                </div>
+                <div className="grid">
+                  <Label>Price unit</Label>
+                  <Select
+                    value={priceUnitSelectValue}
+                    onChange={(value) => {
+                      if (value === UNIT_CUSTOM_LABEL) {
+                        update(
+                          'priceUnit',
+                          isPreset(quote.priceUnit, LINE_ITEM_UNIT_PRESETS) ? '' : quote.priceUnit,
+                        );
+                        return;
+                      }
+                      update('priceUnit', value);
+                    }}
+                    options={[...LINE_ITEM_UNIT_PRESETS, UNIT_CUSTOM_LABEL]}
+                    placeholder="Choose unit"
+                  />
+                  {priceUnitSelectValue === UNIT_CUSTOM_LABEL ? (
+                    <Input
+                      value={quote.priceUnit}
+                      onChange={(event) => update('priceUnit', event.target.value)}
+                      placeholder="Custom price unit"
+                    />
+                  ) : null}
+                </div>
               </div>
             </div>
           </Card>
@@ -681,6 +774,13 @@ export default function ClassicQuotationPage() {
               </div>
               <button
                 type="button"
+                className="btn"
+                onClick={handleSaveClassicQuotation}
+              >
+                Save quotation
+              </button>
+              <button
+                type="button"
                 className="btn primary"
                 onClick={handleOpenClassicPdf}
                 disabled={isOpeningPdf}
@@ -688,11 +788,25 @@ export default function ClassicQuotationPage() {
                 {isOpeningPdf ? 'Preparing PDF...' : 'Open PDF'}
               </button>
             </div>
-            {pdfStatus ? (
+            {status ? (
               <div className="classic-pdf-status">
-                <span>{pdfStatus.lead}</span>
-                {pdfStatus.filename ? <strong>{pdfStatus.filename}</strong> : null}
-                <span>{pdfStatus.tail}</span>
+                <span>{status.lead}</span>
+                {status.filename ? (
+                  <button
+                    type="button"
+                    className={`status-copy-chip ${status.copied ? 'copied' : ''}`}
+                    onClick={handleCopyStatusFilename}
+                    title="Copy filename"
+                  >
+                    <span>{status.filename}</span>
+                    {status.copied ? (
+                      <Check size={14} strokeWidth={2.4} />
+                    ) : (
+                      <Copy size={14} strokeWidth={2.1} />
+                    )}
+                  </button>
+                ) : null}
+                <span>{status.tail}</span>
               </div>
             ) : null}
 
