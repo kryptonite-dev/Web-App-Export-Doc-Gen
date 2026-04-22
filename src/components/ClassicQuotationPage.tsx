@@ -10,7 +10,7 @@ import {
   UNIT_CUSTOM_LABEL,
 } from '../constants';
 
-type ClassicQuotation = {
+export type ClassicQuotation = {
   logoDataUrl?: string;
   logoWidth: number;
   sellerName: string;
@@ -63,6 +63,39 @@ const FIELD_GUIDE = [
 const DEFAULT_CLASSIC_LOGO_SRC = '/huqkhuun-gold-logo.png';
 const isPreset = (value: string, presets: string[]) => presets.includes(value);
 
+type PdfStatus = {
+  lead: string;
+  filename: string;
+  tail: string;
+};
+
+function sanitizeFilename(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/gi, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80) || 'classic-quotation';
+}
+
+function formatFilenameTimestamp(date = new Date()) {
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return [
+    date.getFullYear(),
+    pad(date.getMonth() + 1),
+    pad(date.getDate()),
+  ].join('-') + `_${pad(date.getHours())}-${pad(date.getMinutes())}-${pad(date.getSeconds())}`;
+}
+
+function buildClassicPdfBaseName(quote: ClassicQuotation, date = new Date()) {
+  const buyer = quote.buyerName || quote.attention || quote.refNo || 'classic-quotation';
+  const qty = `${fmt(quote.minQtyValue, 0)}${quote.minQtyUnit || 'unit'}`
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/gi, '-')
+    .replace(/^-+|-+$/g, '');
+  return `${sanitizeFilename(buyer)}_${qty}_${formatFilenameTimestamp(date)}`;
+}
+
 function defaultClassicQuotation(): ClassicQuotation {
   return {
     logoDataUrl: undefined,
@@ -114,6 +147,8 @@ function blockLines(value: string) {
 
 export default function ClassicQuotationPage() {
   const [quote, setQuote] = useState<ClassicQuotation>(() => defaultClassicQuotation());
+  const [isOpeningPdf, setIsOpeningPdf] = useState(false);
+  const [pdfStatus, setPdfStatus] = useState<PdfStatus | null>(null);
 
   const update = <K extends keyof ClassicQuotation>(key: K, value: ClassicQuotation[K]) => {
     setQuote((current) => ({ ...current, [key]: value }));
@@ -132,6 +167,66 @@ export default function ClassicQuotationPage() {
   const priceUnitSelectValue = isPreset(quote.priceUnit, LINE_ITEM_UNIT_PRESETS)
     ? quote.priceUnit
     : UNIT_CUSTOM_LABEL;
+
+  const handleOpenClassicPdf = async () => {
+    const popup = window.open('', '_blank');
+    if (popup) {
+      popup.document.title = 'Preparing PDF...';
+      popup.document.body.innerHTML =
+        '<div style="font-family: Avenir Next, Segoe UI, sans-serif; padding: 24px; color: #5b4532;">Preparing PDF...</div>';
+    }
+
+    try {
+      setIsOpeningPdf(true);
+      setPdfStatus(null);
+      const [{ pdf }, { default: ClassicQuotationPDF }] = await Promise.all([
+        import('@react-pdf/renderer'),
+        import('./PDF/ClassicQuotationPDF'),
+      ]);
+      const fileBaseName = buildClassicPdfBaseName(quote);
+      const blob = await pdf(
+        <ClassicQuotationPDF
+          quote={quote}
+          defaultLogoSrc={new URL(DEFAULT_CLASSIC_LOGO_SRC, window.location.origin).toString()}
+        />,
+      ).toBlob();
+      const file =
+        typeof File === 'function'
+          ? new File([blob], `${fileBaseName}.pdf`, { type: 'application/pdf' })
+          : blob;
+      const url = URL.createObjectURL(file);
+
+      if (popup) {
+        popup.location.replace(url);
+      } else {
+        const link = document.createElement('a');
+        link.href = url;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.click();
+      }
+
+      window.setTimeout(() => {
+        URL.revokeObjectURL(url);
+      }, 10 * 60_000);
+
+      setPdfStatus({
+        lead: 'PDF opened in a new tab as',
+        filename: fileBaseName,
+        tail: '.pdf. Use the browser PDF viewer to download if needed.',
+      });
+    } catch (error) {
+      if (popup) popup.close();
+      console.error(error);
+      setPdfStatus({
+        lead: 'PDF export failed.',
+        filename: '',
+        tail: ' Check the console for details.',
+      });
+    } finally {
+      setIsOpeningPdf(false);
+    }
+  };
 
   return (
     <div className="classic-page">
@@ -486,12 +581,24 @@ export default function ClassicQuotationPage() {
               <div>
                 <div className="preview-eyebrow">Online preview</div>
                 <h2>Classic quotation</h2>
-                <p>เอกสารด้านล่างคือหน้าที่จะ print หรือ save เป็น PDF</p>
+                <p>เอกสารด้านล่างจะเปิดเป็น PDF ในแท็บใหม่เหมือนหน้า Proposal</p>
               </div>
-              <button type="button" className="btn primary" onClick={() => window.print()}>
-                Print
+              <button
+                type="button"
+                className="btn primary"
+                onClick={handleOpenClassicPdf}
+                disabled={isOpeningPdf}
+              >
+                {isOpeningPdf ? 'Preparing PDF...' : 'Open PDF'}
               </button>
             </div>
+            {pdfStatus ? (
+              <div className="classic-pdf-status">
+                <span>{pdfStatus.lead}</span>
+                {pdfStatus.filename ? <strong>{pdfStatus.filename}</strong> : null}
+                <span>{pdfStatus.tail}</span>
+              </div>
+            ) : null}
 
             <section className="classic-sheet quote-sheet-v2" aria-label="Classic quotation preview">
               <header className="quote-v2-header">

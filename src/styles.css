@@ -1107,6 +1107,25 @@ textarea.input {
   line-height: 1.5;
 }
 
+.classic-pdf-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin: -4px 0 16px;
+  padding: 11px 13px;
+  border-radius: 16px;
+  border: 1px solid rgba(199, 134, 34, 0.18);
+  background: rgba(240, 227, 195, 0.48);
+  color: #6f5638;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.classic-pdf-status strong {
+  font-weight: 900;
+}
+
 .classic-sheet {
   width: min(100%, 816px);
   margin: 0 auto;
@@ -2576,6 +2595,7 @@ textarea.input {
   .classic-toolbar,
   .classic-control-hero,
   .classic-preview-head,
+  .classic-pdf-status,
   .classic-guide,
   .status-banner {
     display: none;
