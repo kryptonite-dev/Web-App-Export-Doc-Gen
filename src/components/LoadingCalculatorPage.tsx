@@ -37,6 +37,44 @@ type OrderUnitOption = {
   ctnPerUnit: number;
 };
 
+type CartonPreset = {
+  id: string;
+  label: string;
+  length: number;
+  width: number;
+  height: number;
+  piecesPerCarton: number;
+};
+
+const CUSTOM_CARTON_PRESET_ID = 'custom';
+
+const CARTON_PRESETS: CartonPreset[] = [
+  {
+    id: '150ml24pcs5ly',
+    label: '150ml24pcs5ly',
+    length: 306,
+    width: 215,
+    height: 195,
+    piecesPerCarton: 24,
+  },
+  {
+    id: '30g20pcs3ly',
+    label: '30g20pcs3ly',
+    length: 310,
+    width: 360,
+    height: 130,
+    piecesPerCarton: 20,
+  },
+  {
+    id: '30g35pcs3ly',
+    label: '30g35pcs3ly',
+    length: 320,
+    width: 480,
+    height: 300,
+    piecesPerCarton: 35,
+  },
+];
+
 const PALLETS: PalletSpec[] = [
   {
     id: 'upr_wood_1000x1200',
@@ -148,11 +186,13 @@ function copyNumber(value: number) {
 }
 
 export default function LoadingCalculatorPage() {
-  const [cartonLength, setCartonLength] = useState(306);
-  const [cartonWidth, setCartonWidth] = useState(215);
-  const [cartonHeight, setCartonHeight] = useState(195);
+  const defaultCartonPreset = CARTON_PRESETS[0];
+  const [cartonPresetId, setCartonPresetId] = useState(defaultCartonPreset.id);
+  const [cartonLength, setCartonLength] = useState(defaultCartonPreset.length);
+  const [cartonWidth, setCartonWidth] = useState(defaultCartonPreset.width);
+  const [cartonHeight, setCartonHeight] = useState(defaultCartonPreset.height);
   const [cartonWeight, setCartonWeight] = useState(8.5);
-  const [bottlesPerCarton, setBottlesPerCarton] = useState(24);
+  const [bottlesPerCarton, setBottlesPerCarton] = useState(defaultCartonPreset.piecesPerCarton);
   const [palletId, setPalletId] = useState('chep_perimeter_1200x1000');
   const [patternId, setPatternId] = useState('column');
   const [orderQuantity, setOrderQuantity] = useState('2');
@@ -161,6 +201,21 @@ export default function LoadingCalculatorPage() {
 
   const pallet = PALLETS.find((item) => item.id === palletId) || PALLETS[0];
   const pattern = PATTERNS.find((item) => item.id === patternId) || PATTERNS[0];
+  const selectedCartonPreset = CARTON_PRESETS.find((item) => item.id === cartonPresetId);
+
+  const applyCartonPreset = (presetId: string) => {
+    setCartonPresetId(presetId);
+    const preset = CARTON_PRESETS.find((item) => item.id === presetId);
+    if (!preset) return;
+    setCartonLength(preset.length);
+    setCartonWidth(preset.width);
+    setCartonHeight(preset.height);
+    setBottlesPerCarton(preset.piecesPerCarton);
+  };
+
+  const markCustomCarton = () => {
+    setCartonPresetId(CUSTOM_CARTON_PRESET_ID);
+  };
 
   const calculation = useMemo(() => {
     const layerCount = cartonsPerLayer(pallet, cartonLength, cartonWidth);
@@ -331,12 +386,35 @@ export default function LoadingCalculatorPage() {
           </div>
 
           <div className="grid two-col">
+            <div className="grid full-span">
+              <Label>Carton preset</Label>
+              <select
+                className="input"
+                value={cartonPresetId}
+                onChange={(event) => applyCartonPreset(event.target.value)}
+              >
+                {CARTON_PRESETS.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.label} · {item.length}×{item.width}×{item.height} mm
+                  </option>
+                ))}
+                <option value={CUSTOM_CARTON_PRESET_ID}>Custom</option>
+              </select>
+              <div className="muted">
+                {selectedCartonPreset
+                  ? `${selectedCartonPreset.label}: ${selectedCartonPreset.length}×${selectedCartonPreset.width}×${selectedCartonPreset.height} mm · ${selectedCartonPreset.piecesPerCarton} PCS/CTN`
+                  : 'Custom carton: edit dimensions and PCS/CTN below.'}
+              </div>
+            </div>
             <div className="grid">
               <Label>Carton length (mm)</Label>
               <Input
                 type="number"
                 value={cartonLength}
-                onChange={(event) => setCartonLength(Number(event.target.value) || 0)}
+                onChange={(event) => {
+                  markCustomCarton();
+                  setCartonLength(Number(event.target.value) || 0);
+                }}
               />
             </div>
             <div className="grid">
@@ -344,7 +422,10 @@ export default function LoadingCalculatorPage() {
               <Input
                 type="number"
                 value={cartonWidth}
-                onChange={(event) => setCartonWidth(Number(event.target.value) || 0)}
+                onChange={(event) => {
+                  markCustomCarton();
+                  setCartonWidth(Number(event.target.value) || 0);
+                }}
               />
             </div>
             <div className="grid">
@@ -352,7 +433,10 @@ export default function LoadingCalculatorPage() {
               <Input
                 type="number"
                 value={cartonHeight}
-                onChange={(event) => setCartonHeight(Number(event.target.value) || 0)}
+                onChange={(event) => {
+                  markCustomCarton();
+                  setCartonHeight(Number(event.target.value) || 0);
+                }}
               />
             </div>
             <div className="grid">
@@ -365,11 +449,14 @@ export default function LoadingCalculatorPage() {
               />
             </div>
             <div className="grid">
-              <Label>Bottles per carton</Label>
+              <Label>PCS per carton</Label>
               <Input
                 type="number"
                 value={bottlesPerCarton}
-                onChange={(event) => setBottlesPerCarton(Number(event.target.value) || 0)}
+                onChange={(event) => {
+                  markCustomCarton();
+                  setBottlesPerCarton(Number(event.target.value) || 0);
+                }}
               />
             </div>
             <div className="grid">
@@ -523,7 +610,7 @@ export default function LoadingCalculatorPage() {
                 <div className="calc-kpi-label">Total PCS</div>
                 <div className="calc-result-value">{fmt(convertedPcs, convertedPcsDigits)}</div>
                 <div className="muted" style={{ fontSize: 12 }}>
-                  Based on {fmt(bottlesPerCarton, 0)} bottles per carton.
+                  Based on {fmt(bottlesPerCarton, 0)} PCS per carton.
                 </div>
               </div>
             </div>
@@ -551,7 +638,7 @@ export default function LoadingCalculatorPage() {
                   <th>Pallets / container</th>
                   <th>CTN / pallet</th>
                   <th>CTN / container</th>
-                  <th>Bottles / container</th>
+                  <th>PCS / container</th>
                   <th>Est. gross wt (kg)</th>
                   <th>Status</th>
                 </tr>
@@ -592,7 +679,7 @@ export default function LoadingCalculatorPage() {
                   <th>Dimensional max CTN</th>
                   <th>Weight max CTN</th>
                   <th>Usable CTN</th>
-                  <th>Bottles</th>
+                  <th>PCS</th>
                   <th>Limiting factor</th>
                 </tr>
               </thead>
