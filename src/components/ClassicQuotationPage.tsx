@@ -13,6 +13,7 @@ import {
 export type ClassicQuotation = {
   logoDataUrl?: string;
   logoWidth: number;
+  inquiryType: 'MOQ' | 'QUOTE';
   sellerName: string;
   sellerAddress: string;
   buyerName: string;
@@ -31,6 +32,8 @@ export type ClassicQuotation = {
   priceUnit: string;
   minQtyValue: number;
   minQtyUnit: string;
+  quoteQtyValue: number;
+  quoteQtyUnit: string;
   paymentTerms: string;
   sellerBank: string;
   bankAddress: string;
@@ -62,6 +65,8 @@ const FIELD_GUIDE = [
 
 const DEFAULT_CLASSIC_LOGO_SRC = '/huqkhuun-gold-logo.png';
 const isPreset = (value: string, presets: string[]) => presets.includes(value);
+const CURRENCY_OPTIONS = ['USD', 'THB', 'EUR', 'AED'];
+const INQUIRY_TYPE_OPTIONS = ['MOQ', 'QUOTE'];
 
 type PdfStatus = {
   lead: string;
@@ -89,17 +94,39 @@ function formatFilenameTimestamp(date = new Date()) {
 
 function buildClassicPdfBaseName(quote: ClassicQuotation, date = new Date()) {
   const buyer = quote.buyerName || quote.attention || quote.refNo || 'classic-quotation';
-  const qty = `${fmt(quote.minQtyValue, 0)}${quote.minQtyUnit || 'unit'}`
+  const activeQuantity = getClassicQuantityDisplay(quote);
+  const qty = `${fmt(activeQuantity.value, 0)}${activeQuantity.unit || 'unit'}`
     .toLowerCase()
     .replace(/[^a-z0-9]+/gi, '-')
     .replace(/^-+|-+$/g, '');
   return `${sanitizeFilename(buyer)}_${qty}_${formatFilenameTimestamp(date)}`;
 }
 
+function isThbQuote(currency: string) {
+  return currency.trim().toUpperCase() === 'THB';
+}
+
+export function getClassicQuantityDisplay(quote: ClassicQuotation) {
+  if (quote.inquiryType === 'QUOTE') {
+    return {
+      label: 'Requested Qty',
+      value: quote.quoteQtyValue,
+      unit: quote.quoteQtyUnit,
+    };
+  }
+
+  return {
+    label: 'Min. Qty / Order',
+    value: quote.minQtyValue,
+    unit: quote.minQtyUnit,
+  };
+}
+
 function defaultClassicQuotation(): ClassicQuotation {
   return {
     logoDataUrl: undefined,
     logoWidth: 160,
+    inquiryType: 'MOQ',
     sellerName: 'FAH LADDA CO., LTD.',
     sellerAddress: '79/1 Moo1, Klongtan, Ban Phaeo, Samut Sakhon, 74120, Thailand',
     buyerName: 'PROSPECTIVE BUYER',
@@ -118,6 +145,8 @@ function defaultClassicQuotation(): ClassicQuotation {
     priceUnit: 'CTN',
     minQtyValue: 2,
     minQtyUnit: 'PALLET',
+    quoteQtyValue: 2,
+    quoteQtyUnit: 'PALLET',
     paymentTerms: '100% Advance Payment',
     sellerBank: 'EXPORT IMPORT BANK OF THAILAND',
     bankAddress: 'EXIM BLDG., 14TH FLOOR, 1193 PHAHOLYOTHIN RD, PHAYATHAI, BANGKOK 10400',
@@ -154,7 +183,8 @@ export default function ClassicQuotationPage() {
     setQuote((current) => ({ ...current, [key]: value }));
   };
 
-  const quantityLabel = `${fmt(quote.minQtyValue, 0)} ${quote.minQtyUnit}`;
+  const activeQuantity = getClassicQuantityDisplay(quote);
+  const quantityLabel = `${fmt(activeQuantity.value, 0)} ${activeQuantity.unit}`;
   const deliverySelectValue = isPreset(quote.deliveryTerm, INCOTERMS_PRESETS)
     ? quote.deliveryTerm
     : UNIT_CUSTOM_LABEL;
@@ -164,9 +194,13 @@ export default function ClassicQuotationPage() {
   const moqUnitSelectValue = isPreset(quote.minQtyUnit, MIN_QTY_UNIT_PRESETS)
     ? quote.minQtyUnit
     : UNIT_CUSTOM_LABEL;
+  const quoteQtyUnitSelectValue = isPreset(quote.quoteQtyUnit, MIN_QTY_UNIT_PRESETS)
+    ? quote.quoteQtyUnit
+    : UNIT_CUSTOM_LABEL;
   const priceUnitSelectValue = isPreset(quote.priceUnit, LINE_ITEM_UNIT_PRESETS)
     ? quote.priceUnit
     : UNIT_CUSTOM_LABEL;
+  const thbQuote = isThbQuote(quote.priceCurrency);
 
   const handleOpenClassicPdf = async () => {
     const popup = window.open('', '_blank');
@@ -410,40 +444,100 @@ export default function ClassicQuotationPage() {
                   value={quote.fxRate}
                   onChange={(event) => update('fxRate', Number(event.target.value) || 0)}
                 />
-              </div>
-              <div className="grid">
-                <Label>MOQ value</Label>
-                <Input
-                  type="number"
-                  value={quote.minQtyValue}
-                  onChange={(event) => update('minQtyValue', Number(event.target.value) || 0)}
-                />
-              </div>
-              <div className="grid">
-                <Label>MOQ unit</Label>
-                <Select
-                  value={moqUnitSelectValue}
-                  onChange={(value) => {
-                    if (value === UNIT_CUSTOM_LABEL) {
-                      update(
-                        'minQtyUnit',
-                        isPreset(quote.minQtyUnit, MIN_QTY_UNIT_PRESETS) ? '' : quote.minQtyUnit,
-                      );
-                      return;
-                    }
-                    update('minQtyUnit', value);
-                  }}
-                  options={[...MIN_QTY_UNIT_PRESETS, UNIT_CUSTOM_LABEL]}
-                  placeholder="Select unit"
-                />
-                {moqUnitSelectValue === UNIT_CUSTOM_LABEL ? (
-                  <Input
-                    value={quote.minQtyUnit}
-                    onChange={(event) => update('minQtyUnit', event.target.value)}
-                    placeholder="Custom MOQ unit"
-                  />
+                {thbQuote ? (
+                  <span className="muted">
+                    THB quote: ไม่ต้องใช้ FX ในใบเสนอราคา exporter สามารถแปลงด้วย bank rate
+                    ของตัวเอง
+                  </span>
                 ) : null}
               </div>
+              <div className="grid">
+                <Label>Inquiry type</Label>
+                <Select
+                  value={quote.inquiryType}
+                  onChange={(value) =>
+                    update('inquiryType', value === 'QUOTE' ? 'QUOTE' : 'MOQ')
+                  }
+                  options={INQUIRY_TYPE_OPTIONS}
+                  placeholder="Select inquiry type"
+                />
+                <span className="muted">
+                  MOQ = แจ้งขั้นต่ำ, QUOTE = ระบุจำนวนที่ลูกค้าขอราคา
+                </span>
+              </div>
+              {quote.inquiryType === 'MOQ' ? (
+                <>
+                  <div className="grid">
+                    <Label>MOQ value</Label>
+                    <Input
+                      type="number"
+                      value={quote.minQtyValue}
+                      onChange={(event) => update('minQtyValue', Number(event.target.value) || 0)}
+                    />
+                  </div>
+                  <div className="grid">
+                    <Label>MOQ unit</Label>
+                    <Select
+                      value={moqUnitSelectValue}
+                      onChange={(value) => {
+                        if (value === UNIT_CUSTOM_LABEL) {
+                          update(
+                            'minQtyUnit',
+                            isPreset(quote.minQtyUnit, MIN_QTY_UNIT_PRESETS) ? '' : quote.minQtyUnit,
+                          );
+                          return;
+                        }
+                        update('minQtyUnit', value);
+                      }}
+                      options={[...MIN_QTY_UNIT_PRESETS, UNIT_CUSTOM_LABEL]}
+                      placeholder="Select unit"
+                    />
+                    {moqUnitSelectValue === UNIT_CUSTOM_LABEL ? (
+                      <Input
+                        value={quote.minQtyUnit}
+                        onChange={(event) => update('minQtyUnit', event.target.value)}
+                        placeholder="Custom MOQ unit"
+                      />
+                    ) : null}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="grid">
+                    <Label>Requested quantity</Label>
+                    <Input
+                      type="number"
+                      value={quote.quoteQtyValue}
+                      onChange={(event) => update('quoteQtyValue', Number(event.target.value) || 0)}
+                    />
+                  </div>
+                  <div className="grid">
+                    <Label>Requested unit</Label>
+                    <Select
+                      value={quoteQtyUnitSelectValue}
+                      onChange={(value) => {
+                        if (value === UNIT_CUSTOM_LABEL) {
+                          update(
+                            'quoteQtyUnit',
+                            isPreset(quote.quoteQtyUnit, MIN_QTY_UNIT_PRESETS) ? '' : quote.quoteQtyUnit,
+                          );
+                          return;
+                        }
+                        update('quoteQtyUnit', value);
+                      }}
+                      options={[...MIN_QTY_UNIT_PRESETS, UNIT_CUSTOM_LABEL]}
+                      placeholder="Select unit"
+                    />
+                    {quoteQtyUnitSelectValue === UNIT_CUSTOM_LABEL ? (
+                      <Input
+                        value={quote.quoteQtyUnit}
+                        onChange={(event) => update('quoteQtyUnit', event.target.value)}
+                        placeholder="Custom requested unit"
+                      />
+                    ) : null}
+                  </div>
+                </>
+              )}
             </div>
           </Card>
 
@@ -466,9 +560,11 @@ export default function ClassicQuotationPage() {
               </div>
               <div className="grid">
                 <Label>Price currency</Label>
-                <Input
+                <Select
                   value={quote.priceCurrency}
-                  onChange={(event) => update('priceCurrency', event.target.value)}
+                  onChange={(value) => update('priceCurrency', value)}
+                  options={CURRENCY_OPTIONS}
+                  placeholder="Select currency"
                 />
               </div>
               <div className="grid">
@@ -688,7 +784,7 @@ export default function ClassicQuotationPage() {
                     </strong>
                   </div>
                   <div>
-                    <span>Min. Qty / Order</span>
+                    <span>{activeQuantity.label}</span>
                     <strong>{quantityLabel}</strong>
                   </div>
                 </div>
@@ -715,12 +811,15 @@ export default function ClassicQuotationPage() {
                       <dd>{quote.swiftCode}</dd>
                     </div>
                   </dl>
-                </div>
-                <div className="quote-v2-exchange">
-                  <span>Exchange rate</span>
-                  <strong>1 USD = {fmt(quote.fxRate, 2)} THB</strong>
-                </div>
-              </section>
+              </div>
+              <div className="quote-v2-exchange">
+                <span>{thbQuote ? 'Currency basis' : 'Exchange rate'}</span>
+                <strong>
+                  {thbQuote ? 'THB quote - no FX applied' : `1 USD = ${fmt(quote.fxRate, 2)} THB`}
+                </strong>
+                {thbQuote ? <small>Exporter may convert using own bank rate</small> : null}
+              </div>
+            </section>
 
               <section className="quote-v2-closing">
                 <div className="quote-v2-message">

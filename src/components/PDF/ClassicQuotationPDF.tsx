@@ -17,6 +17,26 @@ function formatDisplayDate(value: string) {
   return `${month} ${date.getDate()}, ${date.getFullYear()}`;
 }
 
+function isThbQuote(currency: string) {
+  return currency.trim().toUpperCase() === 'THB';
+}
+
+function getQuantityDisplay(quote: ClassicQuotation) {
+  if (quote.inquiryType === 'QUOTE') {
+    return {
+      label: 'Requested Qty',
+      value: quote.quoteQtyValue,
+      unit: quote.quoteQtyUnit,
+    };
+  }
+
+  return {
+    label: 'Min. Qty / Order',
+    value: quote.minQtyValue,
+    unit: quote.minQtyUnit,
+  };
+}
+
 const colors = {
   ink: '#4f3d2c',
   soft: '#80674d',
@@ -61,6 +81,7 @@ const styles = StyleSheet.create({
     maxHeight: 56,
     objectFit: 'contain',
     marginRight: 18,
+    borderRadius: 12,
   },
   sellerName: {
     fontSize: 12,
@@ -267,6 +288,13 @@ const styles = StyleSheet.create({
     fontWeight: 700,
     lineHeight: 1.2,
   },
+  exchangeNote: {
+    marginTop: 5,
+    color: colors.soft,
+    fontSize: 7.2,
+    fontWeight: 700,
+    lineHeight: 1.25,
+  },
   closing: {
     flexDirection: 'row',
     gap: 14,
@@ -308,7 +336,9 @@ type Props = {
 };
 
 export default function ClassicQuotationPDF({ quote, defaultLogoSrc }: Props) {
-  const quantityLabel = `${fmt(quote.minQtyValue, 0)} ${quote.minQtyUnit}`;
+  const activeQuantity = getQuantityDisplay(quote);
+  const quantityLabel = `${fmt(activeQuantity.value, 0)} ${activeQuantity.unit}`;
+  const thbQuote = isThbQuote(quote.priceCurrency);
 
   return (
     <Document title={`${quote.buyerName || 'Classic quotation'} quotation`}>
@@ -405,7 +435,7 @@ export default function ClassicQuotationPDF({ quote, defaultLogoSrc }: Props) {
               </Text>
             </View>
             <View style={styles.goodsCell}>
-              <Text style={styles.labelSoft}>Min. Qty / Order</Text>
+              <Text style={styles.labelSoft}>{activeQuantity.label}</Text>
               <Text style={[styles.value, { marginTop: 6 }]}>{quantityLabel}</Text>
             </View>
           </View>
@@ -427,8 +457,13 @@ export default function ClassicQuotationPDF({ quote, defaultLogoSrc }: Props) {
             ))}
           </View>
           <View style={styles.exchange}>
-            <Text style={styles.labelSoft}>Exchange rate</Text>
-            <Text style={styles.exchangeValue}>1 USD = {fmt(quote.fxRate, 2)} THB</Text>
+            <Text style={styles.labelSoft}>{thbQuote ? 'Currency basis' : 'Exchange rate'}</Text>
+            <Text style={styles.exchangeValue}>
+              {thbQuote ? 'THB quote - no FX applied' : `1 USD = ${fmt(quote.fxRate, 2)} THB`}
+            </Text>
+            {thbQuote ? (
+              <Text style={styles.exchangeNote}>Exporter may convert using own bank rate</Text>
+            ) : null}
           </View>
         </View>
 

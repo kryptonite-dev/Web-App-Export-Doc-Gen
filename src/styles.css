@@ -2193,6 +2193,15 @@ textarea.input {
   line-height: 1.18;
 }
 
+.quote-v2-exchange small {
+  display: block;
+  margin-top: 8px;
+  color: rgba(79, 61, 44, 0.72);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
 .quote-v2-closing {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 260px;
@@ -3186,6 +3195,11 @@ textarea.input {
   .quote-v2-exchange strong {
     margin-top: 7px;
     font-size: 12px;
+  }
+
+  .quote-v2-exchange small {
+    margin-top: 5px;
+    font-size: 7.5px;
   }
 
   .quote-v2-closing {
