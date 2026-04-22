@@ -71,6 +71,53 @@ export const CLASSIC_PRICE_CALCULATOR_STORAGE_KEY = 'classic-mini-price-calculat
 const isPreset = (value: string, presets: string[]) => presets.includes(value);
 const CURRENCY_OPTIONS = ['USD', 'THB', 'EUR', 'AED'];
 const INQUIRY_TYPE_OPTIONS = ['MOQ', 'QUOTE'];
+const THAI_BANK_PRESETS = [
+  {
+    name: 'EXPORT IMPORT BANK OF THAILAND',
+    swift: 'EXTHTHBKXXX',
+    address: 'EXIM BLDG., 14TH FLOOR, 1193 PHAHOLYOTHIN RD, PHAYATHAI, BANGKOK 10400',
+  },
+  {
+    name: 'BANGKOK BANK PUBLIC COMPANY LIMITED',
+    swift: 'BKKBTHBKXXX',
+    address: '333 SILOM ROAD, SILOM, BANG RAK, BANGKOK 10500',
+  },
+  {
+    name: 'KASIKORNBANK PUBLIC COMPANY LIMITED',
+    swift: 'KASITHBKXXX',
+    address: '1 SOI KASIKORNTHAI, RATBURANA ROAD, RATBURANA, BANGKOK 10140',
+  },
+  {
+    name: 'SIAM COMMERCIAL BANK PUBLIC COMPANY LIMITED',
+    swift: 'SICOTHBKXXX',
+    address: '9 RATCHADAPHISEK ROAD, CHATUCHAK, BANGKOK 10900',
+  },
+  {
+    name: 'KRUNG THAI BANK PUBLIC COMPANY LIMITED',
+    swift: 'KRTHTHBKXXX',
+    address: '35 SUKHUMVIT ROAD, KHLONG TOEI NUEA, WATTHANA, BANGKOK 10110',
+  },
+  {
+    name: 'BANK OF AYUDHYA PUBLIC COMPANY LIMITED',
+    swift: 'AYUDTHBKXXX',
+    address: '1222 RAMA III ROAD, BANG PHONGPHANG, YAN NAWA, BANGKOK 10120',
+  },
+  {
+    name: 'TMBTHANACHART BANK PUBLIC COMPANY LIMITED',
+    swift: 'TMBKTHBKXXX',
+    address: '3000 PHAHONYOTHIN ROAD, CHOMPHON, CHATUCHAK, BANGKOK 10900',
+  },
+  {
+    name: 'UNITED OVERSEAS BANK (THAI) PUBLIC COMPANY LIMITED',
+    swift: 'UOVBTHBKXXX',
+    address: '690 UOB PLAZA, SUKHUMVIT ROAD, KHLONG TAN, BANGKOK 10110',
+  },
+  {
+    name: 'GOVERNMENT SAVINGS BANK',
+    swift: 'GSBATHBKXXX',
+    address: '470 PHAHOLYOTHIN ROAD, SAMSEN NAI, PHAYA THAI, BANGKOK 10400',
+  },
+];
 
 type ClassicStatus = {
   lead: string;
@@ -241,6 +288,9 @@ export default function ClassicQuotationPage() {
     : UNIT_CUSTOM_LABEL;
   const priceUnitSelectValue = isPreset(quote.priceUnit, LINE_ITEM_UNIT_PRESETS)
     ? quote.priceUnit
+    : UNIT_CUSTOM_LABEL;
+  const sellerBankSelectValue = THAI_BANK_PRESETS.some((bank) => bank.name === quote.sellerBank)
+    ? quote.sellerBank
     : UNIT_CUSTOM_LABEL;
   const thbQuote = isThbQuote(quote.priceCurrency);
 
@@ -700,10 +750,33 @@ export default function ClassicQuotationPage() {
           <Card title="Closing and signature">
             <div className="grid">
               <Label>Seller bank</Label>
-              <Input
-                value={quote.sellerBank}
-                onChange={(event) => update('sellerBank', event.target.value)}
+              <Select
+                value={sellerBankSelectValue}
+                onChange={(value) => {
+                  if (value === UNIT_CUSTOM_LABEL) {
+                    setQuote((current) => ({ ...current, sellerBank: '' }));
+                    return;
+                  }
+                  const selectedBank = THAI_BANK_PRESETS.find((bank) => bank.name === value);
+                  if (!selectedBank) return;
+                  setQuote((current) => ({
+                    ...current,
+                    sellerBank: selectedBank.name,
+                    bankAddress: selectedBank.address,
+                    swiftCode: selectedBank.swift,
+                  }));
+                }}
+                options={[...THAI_BANK_PRESETS.map((bank) => bank.name), UNIT_CUSTOM_LABEL]}
+                placeholder="Choose Thai bank"
               />
+              {sellerBankSelectValue === UNIT_CUSTOM_LABEL ? (
+                <Input
+                  value={quote.sellerBank}
+                  onChange={(event) => update('sellerBank', event.target.value)}
+                  placeholder="Custom seller bank name"
+                />
+              ) : null}
+              <span className="muted">Selecting a Thai bank updates bank address and Swift code automatically.</span>
               <Label>Bank address</Label>
               <Textarea
                 rows={3}
@@ -774,7 +847,7 @@ export default function ClassicQuotationPage() {
               </div>
               <button
                 type="button"
-                className="btn"
+                className="btn classic-save-btn"
                 onClick={handleSaveClassicQuotation}
               >
                 Save quotation

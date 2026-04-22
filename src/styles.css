@@ -1107,6 +1107,17 @@ textarea.input {
   line-height: 1.5;
 }
 
+.classic-save-btn {
+  background: linear-gradient(135deg, rgba(92, 69, 48, 0.08), rgba(92, 69, 48, 0.14));
+  border-color: rgba(92, 69, 48, 0.16);
+  color: #5c4530;
+}
+
+.classic-save-btn:hover {
+  background: linear-gradient(135deg, rgba(92, 69, 48, 0.13), rgba(92, 69, 48, 0.2));
+  border-color: rgba(92, 69, 48, 0.24);
+}
+
 .classic-pdf-status {
   display: flex;
   flex-wrap: wrap;
