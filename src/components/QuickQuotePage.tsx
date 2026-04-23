@@ -34,6 +34,12 @@ const DEFAULT_QUICK_CARTON_PRESET = CARTON_PRESETS[0];
 const QUICK_QUOTE_PALLET_LENGTH = 1200;
 const QUICK_QUOTE_PALLET_WIDTH = 1000;
 const QUICK_QUOTE_SAFE_LAYERS = 8;
+const QUICK_QUOTE_20FCL = {
+  length: 5896,
+  width: 2350,
+  height: 2393,
+  payload: 28300,
+};
 
 function estimateCartonsPerPallet(cartonLength: number, cartonWidth: number) {
   if (!cartonLength || !cartonWidth) return 0;
@@ -63,6 +69,43 @@ function cartonFieldsFromPreset(preset = DEFAULT_QUICK_CARTON_PRESET) {
 function exwPriceForPreset(presetId: string, scenarioKey: ScenarioKey, fallback: number) {
   const preset = CARTON_PRESETS.find((item) => item.id === presetId);
   return preset?.quickQuoteExwPrices[scenarioKey] ?? fallback;
+}
+
+function estimateLooseLoadCartons20Fcl({
+  cartonLength,
+  cartonWidth,
+  cartonHeight,
+  cartonWeight,
+}: {
+  cartonLength: number;
+  cartonWidth: number;
+  cartonHeight: number;
+  cartonWeight: number;
+}) {
+  if (!cartonLength || !cartonWidth || !cartonHeight || !cartonWeight) {
+    return 0;
+  }
+
+  const permutations = [
+    [cartonLength, cartonWidth, cartonHeight],
+    [cartonLength, cartonHeight, cartonWidth],
+    [cartonWidth, cartonLength, cartonHeight],
+    [cartonWidth, cartonHeight, cartonLength],
+    [cartonHeight, cartonLength, cartonWidth],
+    [cartonHeight, cartonWidth, cartonLength],
+  ];
+
+  const dimensional = Math.max(
+    ...permutations.map(
+      ([length, width, height]) =>
+        Math.floor(QUICK_QUOTE_20FCL.length / length) *
+        Math.floor(QUICK_QUOTE_20FCL.width / width) *
+        Math.floor(QUICK_QUOTE_20FCL.height / height),
+    ),
+  );
+  const weightLimited = Math.floor(QUICK_QUOTE_20FCL.payload / cartonWeight);
+
+  return Math.min(dimensional, weightLimited);
 }
 
 const SCENARIOS: Record<ScenarioKey, Scenario> = {
@@ -118,8 +161,8 @@ const SCENARIOS: Record<ScenarioKey, Scenario> = {
     fxRate: 32,
     ...cartonFieldsFromPreset(),
     pallets: 0,
-    totalBottles: 25000,
-    shipmentNote: 'Editable default bottle count for 20FCL',
+    totalBottles: 0,
+    shipmentNote: '20FCL loose-load quantity from carton dimensions and payload',
     recommended: 'FOB Bangkok Port',
     fcaMin: 8000,
     fcaMax: 11000,
@@ -148,17 +191,15 @@ function copyNumber(value: number, digits = 2) {
 }
 
 function buildQuoteCalculation(form: QuoteForm, isFcl: boolean) {
-  const totalBottles = isFcl
-    ? Number(form.totalBottles) || 0
-    : (Number(form.bottlesPerCarton) || 0) *
-      (Number(form.cartonsPerPallet) || 0) *
-      (Number(form.pallets) || 0);
   const bottlesPerCarton = Number(form.bottlesPerCarton) || 0;
-  const totalCartons = bottlesPerCarton ? totalBottles / bottlesPerCarton : 0;
   const cartonLength = Number(form.cartonLength) || 0;
   const cartonWidth = Number(form.cartonWidth) || 0;
   const cartonHeight = Number(form.cartonHeight) || 0;
   const cartonWeight = Number(form.cartonWeight) || 0;
+  const totalCartons = isFcl
+    ? estimateLooseLoadCartons20Fcl({ cartonLength, cartonWidth, cartonHeight, cartonWeight })
+    : (Number(form.cartonsPerPallet) || 0) * (Number(form.pallets) || 0);
+  const totalBottles = totalCartons * bottlesPerCarton;
   const cartonCbm = (cartonLength * cartonWidth * cartonHeight) / 1_000_000_000;
   const totalCbm = totalCartons * cartonCbm;
   const totalGrossWeight = totalCartons * cartonWeight;
@@ -198,6 +239,7 @@ function buildQuoteCalculation(form: QuoteForm, isFcl: boolean) {
   return {
     totalBottles,
     totalCartons,
+    bottlesPerCarton,
     cartonCbm,
     totalCbm,
     totalGrossWeight,
@@ -240,15 +282,21 @@ function recommendedUseForScenario(key: ScenarioKey) {
 }
 
 function ScenarioPriceCell({
-  thbBottle,
+  thbPcs,
+  thbCarton,
+  usdPcs,
   usdCarton,
 }: {
-  thbBottle: number;
+  thbPcs: number;
+  thbCarton: number;
+  usdPcs: number;
   usdCarton: number;
 }) {
   return (
     <div className="quick-price-cell">
-      <strong>{fmt(thbBottle)} THB / PCS</strong>
+      <strong>{fmt(thbPcs)} THB / PCS</strong>
+      <span>{fmt(thbCarton, 2)} THB / CTN</span>
+      <span>USD {fmt(usdPcs, 3)} / PCS</span>
       <span>USD {fmt(usdCarton, 2)} / CTN</span>
     </div>
   );
@@ -471,7 +519,7 @@ export default function QuickQuotePage() {
           </div>
           <p className="muted">
             Defaults come from the source quick-quote file, adjusted to the current project FX flow.
-            Non-20FCL scenarios auto-calculate bottles from pallet data.
+            Pallet scenarios use CTN/pallet. 20FCL uses loose-load CTN from the loading calculator method.
           </p>
 
           <div className="quick-form-grid">
@@ -604,14 +652,18 @@ export default function QuickQuotePage() {
               />
             </div>
             <div className="grid">
-              <Label>Total bottles {isFcl ? '(editable)' : '(auto)'}</Label>
+              <Label>Total PCS (auto)</Label>
               <Input
                 type="number"
                 step="1"
-                value={isFcl ? form.totalBottles : calculation.totalBottles}
-                readOnly={!isFcl}
-                onChange={(event) => updateNumber('totalBottles', event.target.value)}
+                value={calculation.totalBottles}
+                readOnly
               />
+              <div className="muted">
+                {isFcl
+                  ? '20FCL loose-load result from carton dimensions and payload.'
+                  : 'Pallet scenario result from CTN/pallet × pallets × PCS/CTN.'}
+              </div>
             </div>
             <div className="grid full-span">
               <Label>Shipment note</Label>
@@ -860,19 +912,25 @@ export default function QuickQuotePage() {
                   </td>
                   <td>
                     <ScenarioPriceCell
-                      thbBottle={row.exwRounded}
+                      thbPcs={row.exwRounded}
+                      thbCarton={row.exwRounded * row.bottlesPerCarton}
+                      usdPcs={row.exwUsdBottle}
                       usdCarton={row.exwUsdCarton}
                     />
                   </td>
                   <td>
                     <ScenarioPriceCell
-                      thbBottle={row.fcaRounded}
+                      thbPcs={row.fcaRounded}
+                      thbCarton={row.fcaRounded * row.bottlesPerCarton}
+                      usdPcs={row.fcaUsdBottle}
                       usdCarton={row.fcaUsdCarton}
                     />
                   </td>
                   <td>
                     <ScenarioPriceCell
-                      thbBottle={row.fobRounded}
+                      thbPcs={row.fobRounded}
+                      thbCarton={row.fobRounded * row.bottlesPerCarton}
+                      usdPcs={row.fobUsdBottle}
                       usdCarton={row.fobUsdCarton}
                     />
                   </td>
