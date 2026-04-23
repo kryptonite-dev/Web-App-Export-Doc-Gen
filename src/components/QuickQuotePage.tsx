@@ -1,9 +1,10 @@
 import React, { useMemo, useState } from 'react';
 import { Check, Copy } from 'lucide-react';
 import { Card, Input, Label } from './ui';
+import { CARTON_PRESETS, CUSTOM_CARTON_PRESET_ID, type QuickQuoteScenarioKey } from '../constants';
 import { fmt } from '../utils';
 
-type ScenarioKey = 'trial' | 'moq2' | 'thaifex4' | 'fcl20';
+type ScenarioKey = QuickQuoteScenarioKey;
 
 type Scenario = {
   label: string;
@@ -20,18 +21,57 @@ type Scenario = {
   fcaMax: number;
   fobMin: number;
   fobMax: number;
+  cartonPresetId: string;
+  cartonLength: number;
+  cartonWidth: number;
+  cartonHeight: number;
+  cartonWeight: number;
 };
 
 type QuoteForm = Omit<Scenario, 'label' | 'short'>;
+
+const DEFAULT_QUICK_CARTON_PRESET = CARTON_PRESETS[0];
+const QUICK_QUOTE_PALLET_LENGTH = 1200;
+const QUICK_QUOTE_PALLET_WIDTH = 1000;
+const QUICK_QUOTE_SAFE_LAYERS = 8;
+
+function estimateCartonsPerPallet(cartonLength: number, cartonWidth: number) {
+  if (!cartonLength || !cartonWidth) return 0;
+
+  const orientationA =
+    Math.floor(QUICK_QUOTE_PALLET_LENGTH / cartonWidth) *
+    Math.floor(QUICK_QUOTE_PALLET_WIDTH / cartonLength);
+  const orientationB =
+    Math.floor(QUICK_QUOTE_PALLET_LENGTH / cartonLength) *
+    Math.floor(QUICK_QUOTE_PALLET_WIDTH / cartonWidth);
+
+  return Math.max(orientationA, orientationB) * QUICK_QUOTE_SAFE_LAYERS;
+}
+
+function cartonFieldsFromPreset(preset = DEFAULT_QUICK_CARTON_PRESET) {
+  return {
+    cartonPresetId: preset.id,
+    bottlesPerCarton: preset.piecesPerCarton,
+    cartonsPerPallet: estimateCartonsPerPallet(preset.length, preset.width),
+    cartonLength: preset.length,
+    cartonWidth: preset.width,
+    cartonHeight: preset.height,
+    cartonWeight: preset.grossWeight,
+  };
+}
+
+function exwPriceForPreset(presetId: string, scenarioKey: ScenarioKey, fallback: number) {
+  const preset = CARTON_PRESETS.find((item) => item.id === presetId);
+  return preset?.quickQuoteExwPrices[scenarioKey] ?? fallback;
+}
 
 const SCENARIOS: Record<ScenarioKey, Scenario> = {
   trial: {
     label: 'Trial 1 pallet',
     short: '39 THB EXW',
-    exwPrice: 39,
+    exwPrice: DEFAULT_QUICK_CARTON_PRESET.quickQuoteExwPrices.trial,
     fxRate: 32,
-    bottlesPerCarton: 24,
-    cartonsPerPallet: 120,
+    ...cartonFieldsFromPreset(),
     pallets: 1,
     totalBottles: 2880,
     shipmentNote: 'Trial shipment',
@@ -44,10 +84,9 @@ const SCENARIOS: Record<ScenarioKey, Scenario> = {
   moq2: {
     label: 'MOQ 2 pallets',
     short: '35 THB EXW',
-    exwPrice: 35,
+    exwPrice: DEFAULT_QUICK_CARTON_PRESET.quickQuoteExwPrices.moq2,
     fxRate: 32,
-    bottlesPerCarton: 24,
-    cartonsPerPallet: 120,
+    ...cartonFieldsFromPreset(),
     pallets: 2,
     totalBottles: 5760,
     shipmentNote: 'Standard MOQ shipment',
@@ -60,10 +99,9 @@ const SCENARIOS: Record<ScenarioKey, Scenario> = {
   thaifex4: {
     label: 'ThaiFex 4 pallets',
     short: '33 THB EXW',
-    exwPrice: 33,
+    exwPrice: DEFAULT_QUICK_CARTON_PRESET.quickQuoteExwPrices.thaifex4,
     fxRate: 32,
-    bottlesPerCarton: 24,
-    cartonsPerPallet: 120,
+    ...cartonFieldsFromPreset(),
     pallets: 4,
     totalBottles: 11520,
     shipmentNote: 'ThaiFex closing deal',
@@ -76,10 +114,9 @@ const SCENARIOS: Record<ScenarioKey, Scenario> = {
   fcl20: {
     label: '20FCL',
     short: '29 THB EXW',
-    exwPrice: 29,
+    exwPrice: DEFAULT_QUICK_CARTON_PRESET.quickQuoteExwPrices.fcl20,
     fxRate: 32,
-    bottlesPerCarton: 24,
-    cartonsPerPallet: 120,
+    ...cartonFieldsFromPreset(),
     pallets: 0,
     totalBottles: 25000,
     shipmentNote: 'Editable default bottle count for 20FCL',
@@ -118,6 +155,13 @@ function buildQuoteCalculation(form: QuoteForm, isFcl: boolean) {
       (Number(form.pallets) || 0);
   const bottlesPerCarton = Number(form.bottlesPerCarton) || 0;
   const totalCartons = bottlesPerCarton ? totalBottles / bottlesPerCarton : 0;
+  const cartonLength = Number(form.cartonLength) || 0;
+  const cartonWidth = Number(form.cartonWidth) || 0;
+  const cartonHeight = Number(form.cartonHeight) || 0;
+  const cartonWeight = Number(form.cartonWeight) || 0;
+  const cartonCbm = (cartonLength * cartonWidth * cartonHeight) / 1_000_000_000;
+  const totalCbm = totalCartons * cartonCbm;
+  const totalGrossWeight = totalCartons * cartonWeight;
   const fxRate = Number(form.fxRate) || 0;
   const exwPrice = Number(form.exwPrice) || 0;
   const fcaMin = Number(form.fcaMin) || 0;
@@ -154,6 +198,9 @@ function buildQuoteCalculation(form: QuoteForm, isFcl: boolean) {
   return {
     totalBottles,
     totalCartons,
+    cartonCbm,
+    totalCbm,
+    totalGrossWeight,
     fxRate,
     exwShipment,
     exwRounded,
@@ -201,7 +248,7 @@ function ScenarioPriceCell({
 }) {
   return (
     <div className="quick-price-cell">
-      <strong>{fmt(thbBottle)} THB / bottle</strong>
+      <strong>{fmt(thbBottle)} THB / PCS</strong>
       <span>USD {fmt(usdCarton, 2)} / CTN</span>
     </div>
   );
@@ -239,7 +286,7 @@ function PriceBox({
       <span className="quick-tag">{title}</span>
       <div className="small">{description}</div>
       <div className="quick-price-big">{fmt(priceThb)} THB</div>
-      <div className="quick-price-sub">USD {fmt(priceUsd, 3)} / bottle</div>
+      <div className="quick-price-sub">USD {fmt(priceUsd, 3)} / PCS</div>
       <div className="quick-copy-row">
         <div>
           <div className="calc-kpi-label">Quotation bridge</div>
@@ -269,13 +316,25 @@ export default function QuickQuotePage() {
   const [copyStatus, setCopyStatus] = useState('');
 
   const isFcl = scenarioKey === 'fcl20';
+  const selectedCartonPreset = CARTON_PRESETS.find((item) => item.id === form.cartonPresetId);
 
   const calculation = useMemo(() => buildQuoteCalculation(form, isFcl), [form, isFcl]);
   const scenarioComparison = useMemo(
     () =>
       SCENARIO_ORDER.map((key) => {
         const scenario = SCENARIOS[key];
-        const scenarioForm = scenarioToForm(key);
+        const scenarioBase = scenarioToForm(key);
+        const scenarioForm = {
+          ...scenarioBase,
+          cartonPresetId: form.cartonPresetId,
+          exwPrice: exwPriceForPreset(form.cartonPresetId, key, scenarioBase.exwPrice),
+          bottlesPerCarton: form.bottlesPerCarton,
+          cartonsPerPallet: form.cartonsPerPallet,
+          cartonLength: form.cartonLength,
+          cartonWidth: form.cartonWidth,
+          cartonHeight: form.cartonHeight,
+          cartonWeight: form.cartonWeight,
+        };
         return {
           key,
           scenario,
@@ -283,12 +342,34 @@ export default function QuickQuotePage() {
           recommendedUse: recommendedUseForScenario(key),
         };
       }),
-    []
+    [
+      form.bottlesPerCarton,
+      form.cartonsPerPallet,
+      form.cartonHeight,
+      form.cartonLength,
+      form.cartonPresetId,
+      form.cartonWeight,
+      form.cartonWidth,
+    ]
   );
 
   const loadScenario = (next: ScenarioKey) => {
+    const nextScenario = scenarioToForm(next);
+    const currentCarton = {
+      cartonPresetId: form.cartonPresetId,
+      bottlesPerCarton: form.bottlesPerCarton,
+      cartonsPerPallet: form.cartonsPerPallet,
+      cartonLength: form.cartonLength,
+      cartonWidth: form.cartonWidth,
+      cartonHeight: form.cartonHeight,
+      cartonWeight: form.cartonWeight,
+    };
     setScenarioKey(next);
-    setForm(scenarioToForm(next));
+    setForm({
+      ...nextScenario,
+      ...currentCarton,
+      exwPrice: exwPriceForPreset(form.cartonPresetId, next, nextScenario.exwPrice),
+    });
     setCopyStatus('');
   };
 
@@ -297,8 +378,49 @@ export default function QuickQuotePage() {
     setCopyStatus('');
   };
 
+  const updateCartonNumber = (key: keyof QuoteForm, value: string) => {
+    const nextValue = Number(value) || 0;
+    setForm((current) => ({
+      ...current,
+      [key]: nextValue,
+      cartonPresetId: CUSTOM_CARTON_PRESET_ID,
+      cartonsPerPallet:
+        key === 'cartonLength' || key === 'cartonWidth'
+          ? estimateCartonsPerPallet(
+              key === 'cartonLength' ? nextValue : current.cartonLength,
+              key === 'cartonWidth' ? nextValue : current.cartonWidth,
+            )
+          : current.cartonsPerPallet,
+    }));
+    setCopyStatus('');
+  };
+
   const updateText = (key: keyof QuoteForm, value: string) => {
     setForm((current) => ({ ...current, [key]: value }));
+    setCopyStatus('');
+  };
+
+  const applyCartonPreset = (presetId: string) => {
+    if (presetId === CUSTOM_CARTON_PRESET_ID) {
+      setForm((current) => ({ ...current, cartonPresetId: CUSTOM_CARTON_PRESET_ID }));
+      setCopyStatus('');
+      return;
+    }
+
+    const preset = CARTON_PRESETS.find((item) => item.id === presetId);
+    if (!preset) return;
+
+    setForm((current) => ({
+      ...current,
+      cartonPresetId: preset.id,
+      bottlesPerCarton: preset.piecesPerCarton,
+      cartonLength: preset.length,
+      cartonWidth: preset.width,
+      cartonHeight: preset.height,
+      cartonWeight: preset.grossWeight,
+      cartonsPerPallet: estimateCartonsPerPallet(preset.length, preset.width),
+      exwPrice: preset.quickQuoteExwPrices[scenarioKey],
+    }));
     setCopyStatus('');
   };
 
@@ -323,6 +445,7 @@ export default function QuickQuotePage() {
       <div className="quick-scenarios">
         {SCENARIO_ORDER.map((key) => {
           const scenario = SCENARIOS[key];
+          const scenarioPrice = exwPriceForPreset(form.cartonPresetId, key, scenario.exwPrice);
           return (
             <button
               type="button"
@@ -331,7 +454,7 @@ export default function QuickQuotePage() {
               onClick={() => loadScenario(key)}
             >
               <span>{scenario.label}</span>
-              <small>{scenario.short}</small>
+              <small>{scenarioPrice} THB EXW / PCS</small>
             </button>
           );
         })}
@@ -373,14 +496,37 @@ export default function QuickQuotePage() {
                 onChange={(event) => updateText('recommended', event.target.value)}
               />
             </div>
+            <div className="grid full-span">
+              <Label>Carton preset</Label>
+              <select
+                className="input"
+                value={form.cartonPresetId}
+                onChange={(event) => applyCartonPreset(event.target.value)}
+              >
+                {CARTON_PRESETS.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.label} · {item.length}×{item.width}×{item.height} mm · {item.piecesPerCarton} PCS/CTN · {item.grossWeight} kg/CTN
+                  </option>
+                ))}
+                <option value={CUSTOM_CARTON_PRESET_ID}>Custom</option>
+              </select>
+              <div className="muted">
+                {selectedCartonPreset
+                  ? `${selectedCartonPreset.label}: ${selectedCartonPreset.length}×${selectedCartonPreset.width}×${selectedCartonPreset.height} mm · ${selectedCartonPreset.piecesPerCarton} PCS/CTN · ${selectedCartonPreset.grossWeight} kg/CTN`
+                  : 'Custom carton: edit dimensions, weight, and PCS/CTN below.'}
+              </div>
+            </div>
             <div className="grid">
-              <Label>EXW price / bottle (THB)</Label>
+              <Label>EXW price / PCS (THB)</Label>
               <Input
                 type="number"
                 step="0.01"
                 value={form.exwPrice}
                 onChange={(event) => updateNumber('exwPrice', event.target.value)}
               />
+              <div className="muted">
+                Auto from selected carton preset and scenario. Edit here only for a special quote.
+              </div>
             </div>
             <div className="grid">
               <Label>Fixed rate THB to USD</Label>
@@ -392,22 +538,61 @@ export default function QuickQuotePage() {
               />
             </div>
             <div className="grid">
-              <Label>Bottles per carton</Label>
+              <Label>PCS per carton</Label>
               <Input
                 type="number"
                 step="1"
                 value={form.bottlesPerCarton}
-                onChange={(event) => updateNumber('bottlesPerCarton', event.target.value)}
+                onChange={(event) => updateCartonNumber('bottlesPerCarton', event.target.value)}
               />
             </div>
             <div className="grid">
-              <Label>Cartons per pallet</Label>
+              <Label>Carton length (mm)</Label>
+              <Input
+                type="number"
+                step="1"
+                value={form.cartonLength}
+                onChange={(event) => updateCartonNumber('cartonLength', event.target.value)}
+              />
+            </div>
+            <div className="grid">
+              <Label>Carton width (mm)</Label>
+              <Input
+                type="number"
+                step="1"
+                value={form.cartonWidth}
+                onChange={(event) => updateCartonNumber('cartonWidth', event.target.value)}
+              />
+            </div>
+            <div className="grid">
+              <Label>Carton height (mm)</Label>
+              <Input
+                type="number"
+                step="1"
+                value={form.cartonHeight}
+                onChange={(event) => updateCartonNumber('cartonHeight', event.target.value)}
+              />
+            </div>
+            <div className="grid">
+              <Label>Carton gross weight (kg)</Label>
+              <Input
+                type="number"
+                step="0.01"
+                value={form.cartonWeight}
+                onChange={(event) => updateCartonNumber('cartonWeight', event.target.value)}
+              />
+            </div>
+            <div className="grid">
+              <Label>Cartons per pallet (auto/editable)</Label>
               <Input
                 type="number"
                 step="1"
                 value={form.cartonsPerPallet}
                 onChange={(event) => updateNumber('cartonsPerPallet', event.target.value)}
               />
+              <div className="muted">
+                Auto basis: 1200×1000 mm pallet · column stacking · 8 layers.
+              </div>
             </div>
             <div className="grid">
               <Label>Pallets per shipment</Label>
@@ -484,9 +669,19 @@ export default function QuickQuotePage() {
 
           <div className="quick-stat-grid">
             <div className="calc-kpi">
-              <div className="calc-kpi-label">Total bottles</div>
+              <div className="calc-kpi-label">Total PCS</div>
               <div className="calc-kpi-value">{fmt(calculation.totalBottles, 0)}</div>
               <div className="muted">{fmt(calculation.totalCartons, 0)} CTN</div>
+            </div>
+            <div className="calc-kpi">
+              <div className="calc-kpi-label">Total gross wt</div>
+              <div className="calc-kpi-value">{fmt(calculation.totalGrossWeight, 1)} kg</div>
+              <div className="muted">{fmt(form.cartonWeight, 2)} kg / CTN</div>
+            </div>
+            <div className="calc-kpi">
+              <div className="calc-kpi-label">Estimated CBM</div>
+              <div className="calc-kpi-value">{fmt(calculation.totalCbm, 3)}</div>
+              <div className="muted">{fmt(calculation.cartonCbm, 4)} CBM / CTN</div>
             </div>
             <div className="calc-kpi">
               <div className="calc-kpi-label">EXW shipment</div>
@@ -494,12 +689,12 @@ export default function QuickQuotePage() {
               <div className="muted">USD {fmt(usd(calculation.exwShipment, calculation.fxRate), 2)}</div>
             </div>
             <div className="calc-kpi">
-              <div className="calc-kpi-label">FCA uplift / bottle</div>
+              <div className="calc-kpi-label">FCA uplift / PCS</div>
               <div className="calc-kpi-value">{fmt(calculation.fcaUpliftMinPb)} - {fmt(calculation.fcaUpliftMaxPb)}</div>
               <div className="muted">THB range</div>
             </div>
             <div className="calc-kpi">
-              <div className="calc-kpi-label">FOB uplift / bottle</div>
+              <div className="calc-kpi-label">FOB uplift / PCS</div>
               <div className="calc-kpi-value">{fmt(calculation.fobUpliftMinPb)} - {fmt(calculation.fobUpliftMaxPb)}</div>
               <div className="muted">THB range</div>
             </div>
@@ -538,8 +733,8 @@ export default function QuickQuotePage() {
           priceThb={calculation.fcaRounded}
           priceUsd={calculation.fcaUsdBottle}
           cartonUsd={calculation.fcaUsdCarton}
-          rangeThb={`Range: ${fmt(calculation.fcaPriceMin)} - ${fmt(calculation.fcaPriceMax)} THB / bottle`}
-          rangeUsd={`USD Range: ${fmt(usd(calculation.fcaPriceMin, calculation.fxRate), 3)} - ${fmt(usd(calculation.fcaPriceMax, calculation.fxRate), 3)} / bottle`}
+          rangeThb={`Range: ${fmt(calculation.fcaPriceMin)} - ${fmt(calculation.fcaPriceMax)} THB / PCS`}
+          rangeUsd={`USD Range: ${fmt(usd(calculation.fcaPriceMin, calculation.fxRate), 3)} - ${fmt(usd(calculation.fcaPriceMax, calculation.fxRate), 3)} / PCS`}
           shipmentThb={`Shipment total: ${fmt(calculation.fcaShipmentMin, 0)} - ${fmt(calculation.fcaShipmentMax, 0)} THB`}
           shipmentUsd={`Shipment total USD: ${fmt(usd(calculation.fcaShipmentMin, calculation.fxRate), 2)} - ${fmt(usd(calculation.fcaShipmentMax, calculation.fxRate), 2)}`}
           copied={copyStatus.startsWith('FCA')}
@@ -552,8 +747,8 @@ export default function QuickQuotePage() {
           priceThb={calculation.fobRounded}
           priceUsd={calculation.fobUsdBottle}
           cartonUsd={calculation.fobUsdCarton}
-          rangeThb={`Range: ${fmt(calculation.fobPriceMin)} - ${fmt(calculation.fobPriceMax)} THB / bottle`}
-          rangeUsd={`USD Range: ${fmt(usd(calculation.fobPriceMin, calculation.fxRate), 3)} - ${fmt(usd(calculation.fobPriceMax, calculation.fxRate), 3)} / bottle`}
+          rangeThb={`Range: ${fmt(calculation.fobPriceMin)} - ${fmt(calculation.fobPriceMax)} THB / PCS`}
+          rangeUsd={`USD Range: ${fmt(usd(calculation.fobPriceMin, calculation.fxRate), 3)} - ${fmt(usd(calculation.fobPriceMax, calculation.fxRate), 3)} / PCS`}
           shipmentThb={`Shipment total: ${fmt(calculation.fobShipmentMin, 0)} - ${fmt(calculation.fobShipmentMax, 0)} THB`}
           shipmentUsd={`Shipment total USD: ${fmt(usd(calculation.fobShipmentMin, calculation.fxRate), 2)} - ${fmt(usd(calculation.fobShipmentMax, calculation.fxRate), 2)}`}
           copied={copyStatus.startsWith('FOB')}
@@ -580,13 +775,13 @@ export default function QuickQuotePage() {
             </thead>
             <tbody>
               <tr>
-                <td>Price / bottle (THB)</td>
+                <td>Price / PCS (THB)</td>
                 <td>{fmt(form.exwPrice)} THB</td>
                 <td>{fmt(calculation.fcaPriceMin)} - {fmt(calculation.fcaPriceMax)} THB</td>
                 <td>{fmt(calculation.fobPriceMin)} - {fmt(calculation.fobPriceMax)} THB</td>
               </tr>
               <tr>
-                <td>Price / bottle (USD)</td>
+                <td>Price / PCS (USD)</td>
                 <td>USD {fmt(calculation.exwUsdBottle, 3)}</td>
                 <td>USD {fmt(usd(calculation.fcaPriceMin, calculation.fxRate), 3)} - {fmt(usd(calculation.fcaPriceMax, calculation.fxRate), 3)}</td>
                 <td>USD {fmt(usd(calculation.fobPriceMin, calculation.fxRate), 3)} - {fmt(usd(calculation.fobPriceMax, calculation.fxRate), 3)}</td>
@@ -610,6 +805,18 @@ export default function QuickQuotePage() {
                 <td>USD {fmt(usd(calculation.fobShipmentMid, calculation.fxRate), 2)}</td>
               </tr>
               <tr>
+                <td>Package basis</td>
+                <td colSpan={3}>
+                  {form.cartonLength}×{form.cartonWidth}×{form.cartonHeight} mm · {fmt(form.bottlesPerCarton, 0)} PCS/CTN · {fmt(form.cartonWeight, 2)} kg/CTN
+                </td>
+              </tr>
+              <tr>
+                <td>Shipment weight / CBM</td>
+                <td colSpan={3}>
+                  {fmt(calculation.totalGrossWeight, 1)} kg · {fmt(calculation.totalCbm, 3)} CBM
+                </td>
+              </tr>
+              <tr>
                 <td>Recommended use</td>
                 <td>Factory / EXW discussion</td>
                 <td>{isFcl ? 'Possible, but FOB usually preferred' : 'Recommended for mixed-container'}</td>
@@ -619,7 +826,7 @@ export default function QuickQuotePage() {
           </table>
         </div>
         <div className="calc-note">
-          Working assumptions: 1 carton = {fmt(form.bottlesPerCarton, 0)} bottles,
+          Working assumptions: 1 carton = {fmt(form.bottlesPerCarton, 0)} PCS,
           1 pallet = {fmt(form.cartonsPerPallet, 0)} cartons. USD values use the fixed FX rate entered above.
         </div>
       </Card>
@@ -648,7 +855,7 @@ export default function QuickQuotePage() {
                   <td>
                     <strong>{scenario.label}</strong>
                     <div className="quick-table-sub">
-                      {fmt(row.totalCartons, 0)} CTN / {fmt(row.totalBottles, 0)} bottles
+                      {fmt(row.totalCartons, 0)} CTN / {fmt(row.totalBottles, 0)} PCS
                     </div>
                   </td>
                   <td>
@@ -676,7 +883,7 @@ export default function QuickQuotePage() {
           </table>
         </div>
         <div className="calc-note">
-          This table is a fast scenario map using each package default. Use the cards above when
+          This table is a fast scenario map using the selected carton preset. Use the cards above when
           the buyer wants a live edited quote for one selected shipment.
         </div>
       </Card>

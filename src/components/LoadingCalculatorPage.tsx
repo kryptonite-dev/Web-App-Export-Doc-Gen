@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Copy } from 'lucide-react';
 import { Card, Input, Label } from './ui';
+import { CARTON_PRESETS, CUSTOM_CARTON_PRESET_ID } from '../constants';
 import { fmt } from '../utils';
 
 type PalletSpec = {
@@ -36,44 +37,6 @@ type OrderUnitOption = {
   note: string;
   ctnPerUnit: number;
 };
-
-type CartonPreset = {
-  id: string;
-  label: string;
-  length: number;
-  width: number;
-  height: number;
-  piecesPerCarton: number;
-};
-
-const CUSTOM_CARTON_PRESET_ID = 'custom';
-
-const CARTON_PRESETS: CartonPreset[] = [
-  {
-    id: '150ml24pcs5ly',
-    label: '150ml24pcs5ly',
-    length: 306,
-    width: 215,
-    height: 195,
-    piecesPerCarton: 24,
-  },
-  {
-    id: '30g20pcs3ly',
-    label: '30g20pcs3ly',
-    length: 310,
-    width: 360,
-    height: 140,
-    piecesPerCarton: 20,
-  },
-  {
-    id: '30g35pcs3ly',
-    label: '30g35pcs3ly',
-    length: 320,
-    width: 480,
-    height: 300,
-    piecesPerCarton: 35,
-  },
-];
 
 const PALLETS: PalletSpec[] = [
   {
@@ -191,7 +154,7 @@ export default function LoadingCalculatorPage() {
   const [cartonLength, setCartonLength] = useState(defaultCartonPreset.length);
   const [cartonWidth, setCartonWidth] = useState(defaultCartonPreset.width);
   const [cartonHeight, setCartonHeight] = useState(defaultCartonPreset.height);
-  const [cartonWeight, setCartonWeight] = useState(8.5);
+  const [cartonWeight, setCartonWeight] = useState(defaultCartonPreset.grossWeight);
   const [bottlesPerCarton, setBottlesPerCarton] = useState(defaultCartonPreset.piecesPerCarton);
   const [palletId, setPalletId] = useState('chep_perimeter_1200x1000');
   const [patternId, setPatternId] = useState('column');
@@ -210,6 +173,7 @@ export default function LoadingCalculatorPage() {
     setCartonLength(preset.length);
     setCartonWidth(preset.width);
     setCartonHeight(preset.height);
+    setCartonWeight(preset.grossWeight);
     setBottlesPerCarton(preset.piecesPerCarton);
   };
 
@@ -395,15 +359,15 @@ export default function LoadingCalculatorPage() {
               >
                 {CARTON_PRESETS.map((item) => (
                   <option key={item.id} value={item.id}>
-                    {item.label} · {item.length}×{item.width}×{item.height} mm
+                    {item.label} · {item.length}×{item.width}×{item.height} mm · {item.grossWeight} kg
                   </option>
                 ))}
                 <option value={CUSTOM_CARTON_PRESET_ID}>Custom</option>
               </select>
               <div className="muted">
                 {selectedCartonPreset
-                  ? `${selectedCartonPreset.label}: ${selectedCartonPreset.length}×${selectedCartonPreset.width}×${selectedCartonPreset.height} mm · ${selectedCartonPreset.piecesPerCarton} PCS/CTN`
-                  : 'Custom carton: edit dimensions and PCS/CTN below.'}
+                  ? `${selectedCartonPreset.label}: ${selectedCartonPreset.length}×${selectedCartonPreset.width}×${selectedCartonPreset.height} mm · ${selectedCartonPreset.piecesPerCarton} PCS/CTN · ${selectedCartonPreset.grossWeight} kg/CTN`
+                  : 'Custom carton: edit dimensions, weight, and PCS/CTN below.'}
               </div>
             </div>
             <div className="grid">
@@ -445,7 +409,10 @@ export default function LoadingCalculatorPage() {
                 type="number"
                 step="0.01"
                 value={cartonWeight}
-                onChange={(event) => setCartonWeight(Number(event.target.value) || 0)}
+                onChange={(event) => {
+                  markCustomCarton();
+                  setCartonWeight(Number(event.target.value) || 0);
+                }}
               />
             </div>
             <div className="grid">
