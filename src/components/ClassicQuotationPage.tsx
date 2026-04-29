@@ -5,6 +5,7 @@ import LogoUploader from './LogoUploader';
 import MiniPriceCalculator from './MiniPriceCalculator';
 import { fmt, todayISO } from '../utils';
 import {
+  COMPANY_LOGO_PRESETS,
   INCOTERMS_PRESETS,
   LINE_ITEM_UNIT_PRESETS,
   MIN_QTY_UNIT_PRESETS,
@@ -268,6 +269,18 @@ export default function ClassicQuotationPage() {
     setQuote((current) => ({ ...current, [key]: value }));
   };
 
+  const applyCompanyLogoPreset = (presetId: string) => {
+    const preset = COMPANY_LOGO_PRESETS.find((item) => item.id === presetId);
+    if (!preset) return;
+
+    setQuote((current) => ({
+      ...current,
+      logoDataUrl: preset.logoSrc,
+      sellerName: preset.sellerName,
+      sellerAddress: preset.sellerAddress,
+    }));
+  };
+
   useEffect(() => {
     localStorage.setItem(CLASSIC_QUOTATION_STORAGE_KEY, JSON.stringify(quote));
   }, [quote]);
@@ -431,6 +444,14 @@ export default function ClassicQuotationPage() {
               widthPt={quote.logoWidth}
               onChange={(value) => update('logoDataUrl', value)}
               onWidthChange={(value) => update('logoWidth', value)}
+              presets={COMPANY_LOGO_PRESETS.map((preset) => ({
+                id: preset.id,
+                label: preset.label,
+              }))}
+              selectedPresetId={
+                COMPANY_LOGO_PRESETS.find((preset) => preset.logoSrc === quote.logoDataUrl)?.id
+              }
+              onSelectPreset={applyCompanyLogoPreset}
             />
             <span className="muted">
               ถ้ายังไม่ upload ระบบจะใช้ HuqKhuun Gold Logo เป็น default ใน preview และ PDF

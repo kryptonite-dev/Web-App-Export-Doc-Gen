@@ -1,11 +1,19 @@
 import React from 'react';
 import { Card, Input, Label } from './ui';
 
+type LogoPresetOption = {
+  id: string;
+  label: string;
+};
+
 type Props = {
   value?: string;
   widthPt?: number;
   onChange: (dataUrl?: string) => void;
   onWidthChange: (w: number) => void;
+  presets?: LogoPresetOption[];
+  selectedPresetId?: string;
+  onSelectPreset?: (presetId: string) => void;
 };
 
 function readAsDataUrl(file: File): Promise<string> {
@@ -17,10 +25,38 @@ function readAsDataUrl(file: File): Promise<string> {
   });
 }
 
-export default function LogoUploader({ value, widthPt, onChange, onWidthChange }: Props) {
+export default function LogoUploader({
+  value,
+  widthPt,
+  onChange,
+  onWidthChange,
+  presets,
+  selectedPresetId,
+  onSelectPreset,
+}: Props) {
   return (
     <Card title="Company Logo">
       <div className="grid" style={{ gap: 8 }}>
+        {presets?.length && onSelectPreset ? (
+          <>
+            <Label>Preset logo</Label>
+            <select
+              className="input"
+              value={selectedPresetId || ''}
+              onChange={(event) => {
+                if (!event.target.value) return;
+                onSelectPreset(event.target.value);
+              }}
+            >
+              <option value="">Choose preset logo...</option>
+              {presets.map((preset) => (
+                <option key={preset.id} value={preset.id}>
+                  {preset.label}
+                </option>
+              ))}
+            </select>
+          </>
+        ) : null}
         <Label>Upload logo (PNG/JPG, &lt; 400KB แนะนำ)</Label>
         <input
           className="input"

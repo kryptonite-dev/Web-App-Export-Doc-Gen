@@ -31,6 +31,31 @@ export const UNIT_CUSTOM_LABEL = 'Custom';
 export const MIN_QTY_UNIT_PRESETS = UNIT_PRESETS_BASE;
 export const LINE_ITEM_UNIT_PRESETS = UNIT_PRESETS_BASE;
 
+export type CompanyLogoPreset = {
+  id: string;
+  label: string;
+  logoSrc: string;
+  sellerName: string;
+  sellerAddress: string;
+};
+
+export const COMPANY_LOGO_PRESETS: CompanyLogoPreset[] = [
+  {
+    id: 'huqkhuun',
+    label: 'Huq Khuun',
+    logoSrc: '/huqkhuun-gold-logo.png',
+    sellerName: 'FAH LADDA CO., LTD.',
+    sellerAddress: '79/1 Moo1, Klongtan, Ban Phaeo, Samut Sakhon, 74120, Thailand',
+  },
+  {
+    id: 'kin-aroi',
+    label: 'Kin Aroi',
+    logoSrc: '/kin-aroi-logo.png',
+    sellerName: 'GOLDERA LTD., PART.',
+    sellerAddress: '32 Moo2 Banpout, Mueang, Lampang, 52100, Thailand',
+  },
+];
+
 export type CartonPreset = {
   id: string;
   label: string;

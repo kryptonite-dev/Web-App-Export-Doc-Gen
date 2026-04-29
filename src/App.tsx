@@ -12,6 +12,7 @@ import ClassicQuotationPage, {
 } from './components/ClassicQuotationPage';
 import { Card, Input, Label, Select, Textarea } from './components/ui';
 import {
+  COMPANY_LOGO_PRESETS,
   GOODS_DESCRIPTION_PRESETS,
   INCOTERMS_PRESETS,
   MIN_QTY_UNIT_PRESETS,
@@ -505,6 +506,21 @@ function App() {
     }));
   };
 
+  const applyCompanyLogoPreset = (presetId: string) => {
+    const preset = COMPANY_LOGO_PRESETS.find((item) => item.id === presetId);
+    if (!preset) return;
+
+    setDoc((current) => ({
+      ...current,
+      logoDataUrl: preset.logoSrc,
+      seller: {
+        ...current.seller,
+        name: preset.sellerName,
+        address: preset.sellerAddress,
+      },
+    }));
+  };
+
   const updateMinOrder = (value: number, unit = doc.minOrderQty?.unit || 'CTN') => {
     setDoc((current) => ({
       ...current,
@@ -898,6 +914,14 @@ function App() {
               widthPt={doc.logoWidthPt}
               onChange={(value) => updateDoc('logoDataUrl', value)}
               onWidthChange={(value) => updateDoc('logoWidthPt', value)}
+              presets={COMPANY_LOGO_PRESETS.map((preset) => ({
+                id: preset.id,
+                label: preset.label,
+              }))}
+              selectedPresetId={
+                COMPANY_LOGO_PRESETS.find((preset) => preset.logoSrc === doc.logoDataUrl)?.id
+              }
+              onSelectPreset={applyCompanyLogoPreset}
             />
 
             <div className="section-gap" />
