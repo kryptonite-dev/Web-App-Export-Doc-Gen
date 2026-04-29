@@ -5,6 +5,11 @@ import LogoUploader from './LogoUploader';
 import MiniPriceCalculator from './MiniPriceCalculator';
 import { fmt, todayISO } from '../utils';
 import {
+  buildClassicSubjectFromDescriptions,
+  GOODS_DESCRIPTION_CUSTOM_LABEL,
+  GOODS_DESCRIPTION_PRESETS,
+  joinGoodsDescriptionLines,
+  splitGoodsDescriptionLines,
   COMPANY_LOGO_PRESETS,
   INCOTERMS_PRESETS,
   LINE_ITEM_UNIT_PRESETS,
@@ -183,6 +188,7 @@ export function getClassicQuantityDisplay(quote: ClassicQuotation) {
 }
 
 function defaultClassicQuotation(): ClassicQuotation {
+  const defaultDescription = GOODS_DESCRIPTION_PRESETS[0];
   return {
     logoDataUrl: undefined,
     logoWidth: 160,
@@ -193,12 +199,12 @@ function defaultClassicQuotation(): ClassicQuotation {
     buyerAddress: 'Company / Country\nUpdate after the booth conversation',
     attention: 'Procurement Team',
     fromPerson: 'Taninnuth Warittarasith',
-    subject: 'QUOTATION FOR COCONUT BLOSSOM JUICE 150 ML',
+    subject: buildClassicSubjectFromDescriptions([defaultDescription]),
     deliveryTerm: 'FCA BANGKOK / KHLONG TOEI, THAILAND INCOTERMS 2020',
     date: todayISO(),
     pages: '1 of 1',
     refNo: 'FAHLADDA/TFX-2026-001',
-    description: 'Coconut Blossom Juice 150 ml (24 bottles / carton)',
+    description: defaultDescription,
     shippingMark: 'HUQ KHUUN',
     priceCurrency: 'USD',
     priceValue: 0,
@@ -221,10 +227,18 @@ function defaultClassicQuotation(): ClassicQuotation {
 }
 
 function hydrateClassicQuotation(source?: Partial<ClassicQuotation> | null): ClassicQuotation {
-  return {
+  const merged = {
     ...defaultClassicQuotation(),
     ...(source || {}),
   };
+
+  if (!source?.subject || source.subject === defaultClassicQuotation().subject) {
+    merged.subject = buildClassicSubjectFromDescriptions(
+      splitGoodsDescriptionLines(merged.description || ''),
+    );
+  }
+
+  return merged;
 }
 
 function readClassicDraft() {
@@ -264,9 +278,23 @@ export default function ClassicQuotationPage() {
   const [quote, setQuote] = useState<ClassicQuotation>(() => readClassicDraft());
   const [isOpeningPdf, setIsOpeningPdf] = useState(false);
   const [status, setStatus] = useState<ClassicStatus | null>(null);
+  const [goodsPickerValue, setGoodsPickerValue] = useState('');
 
   const update = <K extends keyof ClassicQuotation>(key: K, value: ClassicQuotation[K]) => {
     setQuote((current) => ({ ...current, [key]: value }));
+  };
+
+  const syncDescriptionAndSubject = (description: string) => {
+    const normalizedDescription = joinGoodsDescriptionLines(
+      splitGoodsDescriptionLines(description),
+    );
+    setQuote((current) => ({
+      ...current,
+      description: normalizedDescription,
+      subject: buildClassicSubjectFromDescriptions(
+        splitGoodsDescriptionLines(normalizedDescription),
+      ),
+    }));
   };
 
   const applyCompanyLogoPreset = (presetId: string) => {
@@ -279,6 +307,21 @@ export default function ClassicQuotationPage() {
       sellerName: preset.sellerName,
       sellerAddress: preset.sellerAddress,
     }));
+  };
+
+  const addGoodsDescriptionPreset = (description: string) => {
+    const nextDescription = joinGoodsDescriptionLines([
+      ...splitGoodsDescriptionLines(quote.description || ''),
+      description,
+    ]);
+    syncDescriptionAndSubject(nextDescription);
+  };
+
+  const removeGoodsDescriptionLine = (description: string) => {
+    const nextDescription = joinGoodsDescriptionLines(
+      splitGoodsDescriptionLines(quote.description || '').filter((line) => line !== description),
+    );
+    syncDescriptionAndSubject(nextDescription);
   };
 
   useEffect(() => {
@@ -306,6 +349,7 @@ export default function ClassicQuotationPage() {
     ? quote.sellerBank
     : UNIT_CUSTOM_LABEL;
   const thbQuote = isThbQuote(quote.priceCurrency);
+  const goodsDescriptionLines = splitGoodsDescriptionLines(quote.description || '');
 
   const handleCopyStatusFilename = async () => {
     if (!status?.filename) return;
@@ -537,6 +581,9 @@ export default function ClassicQuotationPage() {
                   value={quote.subject}
                   onChange={(event) => update('subject', event.target.value)}
                 />
+                <span className="muted">
+                  Subject line จะ sync ใหม่อัตโนมัติเมื่อมีการเปลี่ยน Description of goods
+                </span>
               </div>
             </div>
           </Card>
@@ -707,11 +754,54 @@ export default function ClassicQuotationPage() {
 
               <div className="grid two-col">
                 <div className="grid full-span">
+                  <Label>Description template</Label>
+                  <Select
+                    value={goodsPickerValue}
+                    onChange={(value) => {
+                      if (value === GOODS_DESCRIPTION_CUSTOM_LABEL) {
+                        setGoodsPickerValue('');
+                        return;
+                      }
+                      addGoodsDescriptionPreset(value);
+                      setGoodsPickerValue('');
+                    }}
+                    options={[...GOODS_DESCRIPTION_PRESETS, GOODS_DESCRIPTION_CUSTOM_LABEL]}
+                    placeholder="Add product description"
+                  />
+                  <span className="muted">
+                    เลือก preset ได้หลายครั้งเพื่อเพิ่มหลายสินค้า และพิมพ์ custom เพิ่มเองในช่องด้านล่างได้
+                  </span>
+                </div>
+                <div className="grid full-span">
+                  <Label>Selected goods</Label>
+                  <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+                    {goodsDescriptionLines.length ? (
+                      goodsDescriptionLines.map((line) => (
+                        <button
+                          key={line}
+                          type="button"
+                          className="btn"
+                          onClick={() => removeGoodsDescriptionLine(line)}
+                          style={{
+                            background: 'rgba(21, 37, 56, 0.06)',
+                            borderColor: 'rgba(21, 37, 56, 0.08)',
+                            color: '#152538',
+                          }}
+                        >
+                          {line} ×
+                        </button>
+                      ))
+                    ) : (
+                      <span className="muted">ยังไม่ได้เลือกสินค้า</span>
+                    )}
+                  </div>
+                </div>
+                <div className="grid full-span">
                   <Label>Description of goods</Label>
                   <Textarea
-                    rows={3}
+                    rows={5}
                     value={quote.description}
-                    onChange={(event) => update('description', event.target.value)}
+                    onChange={(event) => syncDescriptionAndSubject(event.target.value)}
                   />
                 </div>
                 <div className="grid">
@@ -979,7 +1069,11 @@ export default function ClassicQuotationPage() {
 
               <section className="quote-v2-goods">
                 <div className="quote-v2-section-title">Description of goods</div>
-                <strong>{quote.description}</strong>
+                <div className="grid" style={{ gap: 4 }}>
+                  {goodsDescriptionLines.map((line) => (
+                    <strong key={line}>{line}</strong>
+                  ))}
+                </div>
                 <div className="quote-v2-goods-grid">
                   <div>
                     <span>Shipping mark</span>

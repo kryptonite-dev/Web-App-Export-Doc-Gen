@@ -21,8 +21,50 @@ export const PAYMENT_PRESETS = [
 export const GOODS_DESCRIPTION_PRESETS = [
   'Coconut Blossom Juice 150 ml (24 bottles / carton)',
   'Coconut Blossom Juice 250 ml (24 bottles / carton)',
+  'HuqKhuun Watermelon Rice Cracker 30g (20 bags / carton)',
+  'Kin Aroi Rice Chips Tomato Flavor 30g (20 bags / carton)',
+  'Kin Aroi Rice Chips Sour Cream and Onion Flavor 30g (20 bags / carton)',
 ];
 export const GOODS_DESCRIPTION_CUSTOM_LABEL = 'Custom';
+
+function uniqueGoodsDescriptions(descriptions: string[]) {
+  const seen = new Set<string>();
+  return descriptions
+    .map((description) => description.trim())
+    .filter(Boolean)
+    .filter((description) => {
+      if (seen.has(description)) return false;
+      seen.add(description);
+      return true;
+    });
+}
+
+function goodsDescriptionSubjectName(description: string) {
+  return description.replace(/\s*\([^)]*\)\s*$/, '').trim();
+}
+
+export function splitGoodsDescriptionLines(value: string) {
+  return value
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+export function joinGoodsDescriptionLines(descriptions: string[]) {
+  return uniqueGoodsDescriptions(descriptions).join('\n');
+}
+
+export function buildProposalSubjectFromDescriptions(descriptions: string[]) {
+  const names = uniqueGoodsDescriptions(descriptions).map(goodsDescriptionSubjectName);
+  return names.length ? `Quotation for ${names.join(' / ')}` : 'Quotation for Selected Products';
+}
+
+export function buildClassicSubjectFromDescriptions(descriptions: string[]) {
+  const names = uniqueGoodsDescriptions(descriptions).map((description) =>
+    goodsDescriptionSubjectName(description).toUpperCase(),
+  );
+  return names.length ? `QUOTATION FOR ${names.join(' / ')}` : 'QUOTATION FOR SELECTED PRODUCTS';
+}
 
 // หน่วยมาตรฐานทั้งระบบ
 export const UNIT_PRESETS_BASE = ['CTN', 'PALLET', '20FCL', '40FCL', 'BAG', 'PCS'];

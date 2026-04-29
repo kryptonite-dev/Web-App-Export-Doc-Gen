@@ -422,7 +422,14 @@ export default function ClassicQuotationPDF({ quote, defaultLogoSrc }: Props) {
 
         <View style={styles.goods} wrap={false}>
           <Text style={styles.label}>Description of goods</Text>
-          <Text style={styles.goodsTitle}>{quote.description}</Text>
+          {blockLines(quote.description || '').map((line, index) => (
+            <Text
+              key={`${line}-${index}`}
+              style={index === 0 ? styles.goodsTitle : [styles.goodsTitle, { marginTop: 3 }]}
+            >
+              {line}
+            </Text>
+          ))}
           <View style={styles.goodsGrid}>
             <View style={styles.goodsCell}>
               <Text style={styles.labelSoft}>Shipping mark</Text>

@@ -12,6 +12,7 @@ import ClassicQuotationPage, {
 } from './components/ClassicQuotationPage';
 import { Card, Input, Label, Select, Textarea } from './components/ui';
 import {
+  buildProposalSubjectFromDescriptions,
   COMPANY_LOGO_PRESETS,
   GOODS_DESCRIPTION_PRESETS,
   INCOTERMS_PRESETS,
@@ -35,7 +36,7 @@ type StatusState =
     };
 
 const STORAGE_KEY = 'thaifex-sales-proposal-draft-v3';
-const DEFAULT_SUBJECT = 'Quotation for Coconut Blossom Juice 150 ml';
+const DEFAULT_SUBJECT = buildProposalSubjectFromDescriptions([GOODS_DESCRIPTION_PRESETS[0]]);
 const LEGACY_SUBJECTS = [
   'Buyer-ready quotation for Coconut Blossom Juice 250 ml',
   'Quotation for Coconut Blossom Juice 250 ml',
@@ -164,8 +165,9 @@ function hydrateDoc(source?: Partial<CommonDoc> | null): CommonDoc {
   if (!source) return base;
 
   const normalizedSubject =
-    source.subject && LEGACY_SUBJECTS.includes(source.subject)
-      ? DEFAULT_SUBJECT
+    source.subject &&
+    (LEGACY_SUBJECTS.includes(source.subject) || source.subject === base.subject)
+      ? undefined
       : source.subject;
   const normalizedPresenter =
     source.fromPerson && LEGACY_PRESENTERS.includes(source.fromPerson)
@@ -192,7 +194,11 @@ function hydrateDoc(source?: Partial<CommonDoc> | null): CommonDoc {
   return {
     ...base,
     ...source,
-    subject: normalizedSubject?.trim() ? normalizedSubject : base.subject,
+    subject: normalizedSubject?.trim()
+      ? normalizedSubject
+      : buildProposalSubjectFromDescriptions(
+          (normalizedItems || base.items).map((item) => item.description || ''),
+        ),
     fromPerson: normalizedPresenter?.trim() ? normalizedPresenter : base.fromPerson,
     signatureName: normalizedSignatureName?.trim()
       ? normalizedSignatureName
@@ -518,6 +524,16 @@ function App() {
         name: preset.sellerName,
         address: preset.sellerAddress,
       },
+    }));
+  };
+
+  const updateItemsAndSubject = (items: CommonDoc['items']) => {
+    setDoc((current) => ({
+      ...current,
+      items,
+      subject: buildProposalSubjectFromDescriptions(
+        items.map((item) => item.description || ''),
+      ),
     }));
   };
 
@@ -1162,7 +1178,7 @@ function App() {
 
               <LineItemsEditor
                 items={doc.items}
-                onChange={(items) => updateDoc('items', items)}
+                onChange={updateItemsAndSubject}
                 currency={doc.exchangeCurrency || 'USD'}
                 onCurrency={updateCurrency}
               />
