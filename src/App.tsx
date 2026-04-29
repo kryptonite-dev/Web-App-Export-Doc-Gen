@@ -11,6 +11,7 @@ import ClassicQuotationPage, {
   CLASSIC_QUOTATION_STORAGE_KEY,
 } from './components/ClassicQuotationPage';
 import { Card, Input, Label, Select, Textarea } from './components/ui';
+import { DEFAULT_FX_RATE, useSharedFxRate } from './sharedFxRate';
 import {
   buildProposalSubjectFromDescriptions,
   COMPANY_LOGO_PRESETS,
@@ -131,7 +132,7 @@ function createInitialDoc(): CommonDoc {
     },
     paymentTerms: PAYMENT_PRESETS[0],
     leadTime: '30-45 days after artwork confirmation',
-    fxRate: 32,
+    fxRate: DEFAULT_FX_RATE,
     items: createDefaultItems(),
     notes: [
       'Quoted prices are indicative for THAIFEX meetings and subject to final packaging and destination review.',
@@ -429,6 +430,7 @@ function App() {
     if (route.sharedDoc) return hydrateDoc(route.sharedDoc);
     return hydrateDoc(safeParseDraft(localStorage.getItem(STORAGE_KEY)));
   });
+  const [sharedFxRate, setSharedFxRate] = useSharedFxRate(doc.fxRate ?? DEFAULT_FX_RATE);
   const [status, setStatus] = useState<StatusState | null>(null);
   const [isExporting, setIsExporting] = useState(false);
 
@@ -436,6 +438,13 @@ function App() {
     if (route.isClientView) return;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(doc));
   }, [doc, route.isClientView]);
+
+  useEffect(() => {
+    if (route.isClientView) return;
+    setDoc((current) =>
+      current.fxRate === sharedFxRate ? current : { ...current, fxRate: sharedFxRate },
+    );
+  }, [route.isClientView, sharedFxRate]);
 
   useEffect(() => {
     document.title = route.isClientView
@@ -1125,15 +1134,20 @@ function App() {
                 />
               </div>
               <div className="grid">
-                <Label>FX rate to THB</Label>
+                <Label>Shared FX rate to THB</Label>
                 <Input
                   type="number"
                   value={doc.fxRate ?? ''}
-                  onChange={(event) =>
-                    updateDoc('fxRate', Number(event.target.value) || undefined)
-                  }
+                  onChange={(event) => {
+                    const nextFxRate = Number(event.target.value) || DEFAULT_FX_RATE;
+                    setSharedFxRate(nextFxRate);
+                    updateDoc('fxRate', nextFxRate);
+                  }}
                   placeholder="32.00"
                 />
+                <span className="muted">
+                  Same shared FX value used by Proposal, Classic quotation, and FCA/FOB quote.
+                </span>
               </div>
               <div className="grid">
                 <Label>MOQ value</Label>

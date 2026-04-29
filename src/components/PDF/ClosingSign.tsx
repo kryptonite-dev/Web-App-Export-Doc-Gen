@@ -8,7 +8,7 @@ export default function ClosingSign({ doc }: { doc: CommonDoc }) {
     <>
       <View style={pdfStyles.mt6}>
         <Text>
-          Hoping the above is acceptable to you. If you need further information, please do not hesitate to contact us, we look forward to your favourable reply.
+          We hope the above quotation is acceptable to you. If you need further information, please do not hesitate to contact us. We look forward to your favourable reply.
         </Text>
       </View>
       <View style={pdfStyles.signBlock}>

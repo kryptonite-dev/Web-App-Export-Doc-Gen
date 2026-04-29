@@ -2,7 +2,7 @@
 
 // Incoterms presets
 export const INCOTERMS_PRESETS = [
-  'FOB BANGKOK, THAILAND (Incoterms 2020)',
+  'FOB Bangkok Port, Thailand (Incoterms 2020)',
   'FOB CHIANG RAI, THAILAND (Incoterms 2020)',
   'FOB LEAM CHABANG, THAILAND (Incoterms 2020)',
   'FOB RANONG, THAILAND (Incoterms 2020)',
@@ -13,6 +13,7 @@ export const INCOTERMS_PRESETS = [
 
 // Payment presets
 export const PAYMENT_PRESETS = [
+  '100% T/T in advance before shipment',
   '100% Advance Payment',
   'TT within 30 days',
   'LC at sight',

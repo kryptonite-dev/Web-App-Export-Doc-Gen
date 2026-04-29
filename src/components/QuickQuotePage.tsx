@@ -1,7 +1,15 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Check, Copy } from 'lucide-react';
 import { Card, Input, Label } from './ui';
 import { CARTON_PRESETS, CUSTOM_CARTON_PRESET_ID, type QuickQuoteScenarioKey } from '../constants';
+import { DEFAULT_FX_RATE, useSharedFxRate } from '../sharedFxRate';
+import {
+  estimateTrade20FclLoose,
+  estimateTradeCartonsPerPallet,
+  roundHalf,
+  TRADE_QUOTE_SCENARIO_UPLIFTS,
+  usd,
+} from '../tradeQuotePricing';
 import { fmt } from '../utils';
 
 type ScenarioKey = QuickQuoteScenarioKey;
@@ -31,27 +39,9 @@ type Scenario = {
 type QuoteForm = Omit<Scenario, 'label' | 'short'>;
 
 const DEFAULT_QUICK_CARTON_PRESET = CARTON_PRESETS[0];
-const QUICK_QUOTE_PALLET_LENGTH = 1200;
-const QUICK_QUOTE_PALLET_WIDTH = 1000;
-const QUICK_QUOTE_SAFE_LAYERS = 8;
-const QUICK_QUOTE_20FCL = {
-  length: 5896,
-  width: 2350,
-  height: 2393,
-  payload: 28300,
-};
 
 function estimateCartonsPerPallet(cartonLength: number, cartonWidth: number) {
-  if (!cartonLength || !cartonWidth) return 0;
-
-  const orientationA =
-    Math.floor(QUICK_QUOTE_PALLET_LENGTH / cartonWidth) *
-    Math.floor(QUICK_QUOTE_PALLET_WIDTH / cartonLength);
-  const orientationB =
-    Math.floor(QUICK_QUOTE_PALLET_LENGTH / cartonLength) *
-    Math.floor(QUICK_QUOTE_PALLET_WIDTH / cartonWidth);
-
-  return Math.max(orientationA, orientationB) * QUICK_QUOTE_SAFE_LAYERS;
+  return estimateTradeCartonsPerPallet(cartonLength, cartonWidth);
 }
 
 function cartonFieldsFromPreset(preset = DEFAULT_QUICK_CARTON_PRESET) {
@@ -82,30 +72,7 @@ function estimateLooseLoadCartons20Fcl({
   cartonHeight: number;
   cartonWeight: number;
 }) {
-  if (!cartonLength || !cartonWidth || !cartonHeight || !cartonWeight) {
-    return 0;
-  }
-
-  const permutations = [
-    [cartonLength, cartonWidth, cartonHeight],
-    [cartonLength, cartonHeight, cartonWidth],
-    [cartonWidth, cartonLength, cartonHeight],
-    [cartonWidth, cartonHeight, cartonLength],
-    [cartonHeight, cartonLength, cartonWidth],
-    [cartonHeight, cartonWidth, cartonLength],
-  ];
-
-  const dimensional = Math.max(
-    ...permutations.map(
-      ([length, width, height]) =>
-        Math.floor(QUICK_QUOTE_20FCL.length / length) *
-        Math.floor(QUICK_QUOTE_20FCL.width / width) *
-        Math.floor(QUICK_QUOTE_20FCL.height / height),
-    ),
-  );
-  const weightLimited = Math.floor(QUICK_QUOTE_20FCL.payload / cartonWeight);
-
-  return Math.min(dimensional, weightLimited);
+  return estimateTrade20FclLoose({ cartonLength, cartonWidth, cartonHeight, cartonWeight });
 }
 
 const SCENARIOS: Record<ScenarioKey, Scenario> = {
@@ -113,61 +80,61 @@ const SCENARIOS: Record<ScenarioKey, Scenario> = {
     label: 'Trial 1 pallet',
     short: '39 THB EXW',
     exwPrice: DEFAULT_QUICK_CARTON_PRESET.quickQuoteExwPrices.trial,
-    fxRate: 32,
+    fxRate: DEFAULT_FX_RATE,
     ...cartonFieldsFromPreset(),
     pallets: 1,
     totalBottles: 2880,
     shipmentNote: 'Trial shipment',
     recommended: 'FCA Bangkok / Khlong Toei',
-    fcaMin: 7000,
-    fcaMax: 9000,
-    fobMin: 10000,
-    fobMax: 13000,
+    fcaMin: TRADE_QUOTE_SCENARIO_UPLIFTS.trial.fca[0],
+    fcaMax: TRADE_QUOTE_SCENARIO_UPLIFTS.trial.fca[1],
+    fobMin: TRADE_QUOTE_SCENARIO_UPLIFTS.trial.fob[0],
+    fobMax: TRADE_QUOTE_SCENARIO_UPLIFTS.trial.fob[1],
   },
   moq2: {
     label: 'MOQ 2 pallets',
     short: '35 THB EXW',
     exwPrice: DEFAULT_QUICK_CARTON_PRESET.quickQuoteExwPrices.moq2,
-    fxRate: 32,
+    fxRate: DEFAULT_FX_RATE,
     ...cartonFieldsFromPreset(),
     pallets: 2,
     totalBottles: 5760,
     shipmentNote: 'Standard MOQ shipment',
     recommended: 'FCA Bangkok / Khlong Toei',
-    fcaMin: 9000,
-    fcaMax: 11000,
-    fobMin: 11000,
-    fobMax: 13000,
+    fcaMin: TRADE_QUOTE_SCENARIO_UPLIFTS.moq2.fca[0],
+    fcaMax: TRADE_QUOTE_SCENARIO_UPLIFTS.moq2.fca[1],
+    fobMin: TRADE_QUOTE_SCENARIO_UPLIFTS.moq2.fob[0],
+    fobMax: TRADE_QUOTE_SCENARIO_UPLIFTS.moq2.fob[1],
   },
   thaifex4: {
     label: 'ThaiFex 4 pallets',
     short: '33 THB EXW',
     exwPrice: DEFAULT_QUICK_CARTON_PRESET.quickQuoteExwPrices.thaifex4,
-    fxRate: 32,
+    fxRate: DEFAULT_FX_RATE,
     ...cartonFieldsFromPreset(),
     pallets: 4,
     totalBottles: 11520,
     shipmentNote: 'ThaiFex closing deal',
     recommended: 'FCA Bangkok / Khlong Toei',
-    fcaMin: 11000,
-    fcaMax: 14000,
-    fobMin: 13000,
-    fobMax: 17000,
+    fcaMin: TRADE_QUOTE_SCENARIO_UPLIFTS.thaifex4.fca[0],
+    fcaMax: TRADE_QUOTE_SCENARIO_UPLIFTS.thaifex4.fca[1],
+    fobMin: TRADE_QUOTE_SCENARIO_UPLIFTS.thaifex4.fob[0],
+    fobMax: TRADE_QUOTE_SCENARIO_UPLIFTS.thaifex4.fob[1],
   },
   fcl20: {
     label: '20FCL',
     short: '29 THB EXW',
     exwPrice: DEFAULT_QUICK_CARTON_PRESET.quickQuoteExwPrices.fcl20,
-    fxRate: 32,
+    fxRate: DEFAULT_FX_RATE,
     ...cartonFieldsFromPreset(),
     pallets: 0,
     totalBottles: 0,
     shipmentNote: '20FCL loose-load quantity from carton dimensions and payload',
     recommended: 'FOB Bangkok Port',
-    fcaMin: 8000,
-    fcaMax: 11000,
-    fobMin: 12000,
-    fobMax: 15000,
+    fcaMin: TRADE_QUOTE_SCENARIO_UPLIFTS.fcl20.fca[0],
+    fcaMax: TRADE_QUOTE_SCENARIO_UPLIFTS.fcl20.fca[1],
+    fobMin: TRADE_QUOTE_SCENARIO_UPLIFTS.fcl20.fob[0],
+    fobMax: TRADE_QUOTE_SCENARIO_UPLIFTS.fcl20.fob[1],
   },
 };
 
@@ -176,14 +143,6 @@ const SCENARIO_ORDER: ScenarioKey[] = ['trial', 'moq2', 'thaifex4', 'fcl20'];
 function scenarioToForm(key: ScenarioKey): QuoteForm {
   const { label: _label, short: _short, ...form } = SCENARIOS[key];
   return form;
-}
-
-function roundHalf(value: number) {
-  return Math.round((value || 0) * 2) / 2;
-}
-
-function usd(thb: number, fxRate: number) {
-  return fxRate > 0 ? thb / fxRate : 0;
 }
 
 function copyNumber(value: number, digits = 2) {
@@ -359,9 +318,19 @@ function PriceBox({
 }
 
 export default function QuickQuotePage() {
+  const [sharedFxRate, setSharedFxRate] = useSharedFxRate();
   const [scenarioKey, setScenarioKey] = useState<ScenarioKey>('moq2');
-  const [form, setForm] = useState<QuoteForm>(() => scenarioToForm('moq2'));
+  const [form, setForm] = useState<QuoteForm>(() => ({
+    ...scenarioToForm('moq2'),
+    fxRate: sharedFxRate,
+  }));
   const [copyStatus, setCopyStatus] = useState('');
+
+  useEffect(() => {
+    setForm((current) =>
+      current.fxRate === sharedFxRate ? current : { ...current, fxRate: sharedFxRate },
+    );
+  }, [sharedFxRate]);
 
   const isFcl = scenarioKey === 'fcl20';
   const selectedCartonPreset = CARTON_PRESETS.find((item) => item.id === form.cartonPresetId);
@@ -375,6 +344,7 @@ export default function QuickQuotePage() {
         const scenarioForm = {
           ...scenarioBase,
           cartonPresetId: form.cartonPresetId,
+          fxRate: form.fxRate,
           exwPrice: exwPriceForPreset(form.cartonPresetId, key, scenarioBase.exwPrice),
           bottlesPerCarton: form.bottlesPerCarton,
           cartonsPerPallet: form.cartonsPerPallet,
@@ -396,6 +366,7 @@ export default function QuickQuotePage() {
       form.cartonHeight,
       form.cartonLength,
       form.cartonPresetId,
+      form.fxRate,
       form.cartonWeight,
       form.cartonWidth,
     ]
@@ -416,13 +387,18 @@ export default function QuickQuotePage() {
     setForm({
       ...nextScenario,
       ...currentCarton,
+      fxRate: sharedFxRate,
       exwPrice: exwPriceForPreset(form.cartonPresetId, next, nextScenario.exwPrice),
     });
     setCopyStatus('');
   };
 
   const updateNumber = (key: keyof QuoteForm, value: string) => {
-    setForm((current) => ({ ...current, [key]: Number(value) || 0 }));
+    const nextValue = Number(value) || 0;
+    if (key === 'fxRate') {
+      setSharedFxRate(nextValue);
+    }
+    setForm((current) => ({ ...current, [key]: nextValue }));
     setCopyStatus('');
   };
 
@@ -577,13 +553,16 @@ export default function QuickQuotePage() {
               </div>
             </div>
             <div className="grid">
-              <Label>Fixed rate THB to USD</Label>
+              <Label>Shared FX rate (1 USD = THB)</Label>
               <Input
                 type="number"
                 step="0.0001"
                 value={form.fxRate}
                 onChange={(event) => updateNumber('fxRate', event.target.value)}
               />
+              <div className="muted">
+                Same shared FX value used by Proposal, Classic quotation, and this quote page.
+              </div>
             </div>
             <div className="grid">
               <Label>PCS per carton</Label>

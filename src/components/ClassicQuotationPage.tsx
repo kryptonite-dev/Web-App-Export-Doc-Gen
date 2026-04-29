@@ -3,6 +3,8 @@ import { Check, Copy } from 'lucide-react';
 import { Card, Input, Label, Select, Textarea } from './ui';
 import LogoUploader from './LogoUploader';
 import MiniPriceCalculator from './MiniPriceCalculator';
+import { buildClassicOrderTierRows, formatClassicTierPrice } from '../classicQuotationScale';
+import { DEFAULT_FX_RATE, useSharedFxRate } from '../sharedFxRate';
 import { fmt, todayISO } from '../utils';
 import {
   buildClassicSubjectFromDescriptions,
@@ -20,6 +22,7 @@ import {
 
 export type ClassicQuotationItem = {
   description: string;
+  note: string;
   shippingMark: string;
   priceValue: number;
   priceUnit: string;
@@ -52,6 +55,7 @@ export type ClassicQuotation = {
   quoteQtyValue: number;
   quoteQtyUnit: string;
   paymentTerms: string;
+  paymentNote: string;
   sellerBank: string;
   bankAddress: string;
   swiftCode: string;
@@ -84,6 +88,15 @@ const FIELD_GUIDE = [
 const DEFAULT_CLASSIC_LOGO_SRC = '/huqkhuun-gold-logo.png';
 export const CLASSIC_QUOTATION_STORAGE_KEY = 'classic-export-quotation-draft-v2';
 export const CLASSIC_PRICE_CALCULATOR_STORAGE_KEY = 'classic-mini-price-calculator-v1';
+const QUOTATION_VALIDITY_DAYS = 14;
+const REQUESTED_DELIVERY_TERM = 'FOB Bangkok Port, Thailand (Incoterms 2020)';
+const REQUESTED_PAYMENT_TERM = '100% T/T in advance before shipment';
+const REQUESTED_CLOSING_TEXT =
+  'We hope the above quotation is acceptable to you. If you need further information, please do not hesitate to contact us. We look forward to your favourable reply.';
+const BANK_DETAILS_AFTER_CONFIRMATION = 'To be provided in the Proforma Invoice after order confirmation.';
+const FOB_TRIAL_SHIPMENT_NOTE =
+  "For trial pallet order, shipment shall be coordinated with buyer's nominated forwarder.\nOcean freight, insurance, destination charges, import duties, and taxes are excluded.";
+const EXCHANGE_VALIDITY_NOTE = 'Prices are valid within the validity period.';
 const isPreset = (value: string, presets: string[]) => presets.includes(value);
 const CURRENCY_OPTIONS = ['USD', 'THB', 'EUR', 'AED'];
 const INQUIRY_TYPE_OPTIONS = ['MOQ', 'QUOTE'];
@@ -160,6 +173,24 @@ function formatFilenameTimestamp(date = new Date()) {
   ].join('-') + `_${pad(date.getHours())}-${pad(date.getMinutes())}-${pad(date.getSeconds())}`;
 }
 
+function buildClassicRefPrefix(dateIso = todayISO()) {
+  const [year, month] = dateIso.split('-');
+  return `QUO${year || new Date().getFullYear()}${month || String(new Date().getMonth() + 1).padStart(2, '0')}`;
+}
+
+function buildDefaultClassicRef(dateIso = todayISO()) {
+  return `${buildClassicRefPrefix(dateIso)}-001`;
+}
+
+function normalizeClassicRef(refNo: string, dateIso = todayISO()) {
+  const prefix = buildClassicRefPrefix(dateIso);
+  const value = refNo.trim();
+  if (!value || value === 'FAHLADDA/TFX-2026-001') return buildDefaultClassicRef(dateIso);
+  if (value.startsWith(prefix)) return value;
+  if (/^QUO\d{6}/.test(value)) return value.replace(/^QUO\d{6}/, prefix);
+  return `${prefix}-${value}`;
+}
+
 function formatQuantityFilenameValue(value: number) {
   if (!Number.isFinite(value)) return '0';
   return Number.isInteger(value)
@@ -174,7 +205,7 @@ function buildClassicPdfBaseName(quote: ClassicQuotation, date = new Date()) {
     .toLowerCase()
     .replace(/[^a-z0-9]+/gi, '-')
     .replace(/^-+|-+$/g, '');
-  return `${sanitizeFilename(buyer)}_${qty}_${formatFilenameTimestamp(date)}`;
+  return `Quotation_${sanitizeFilename(buyer)}_${qty}_${formatFilenameTimestamp(date)}`;
 }
 
 function isThbQuote(currency: string) {
@@ -188,6 +219,9 @@ function defaultClassicQuotationItem(
 ): ClassicQuotationItem {
   return {
     description,
+    note: description.toLowerCase().includes('watermelon')
+      ? 'Special production item, subject to production confirmation.'
+      : '',
     shippingMark: 'HUQ KHUUN',
     priceValue: 0,
     priceUnit: 'CTN',
@@ -243,10 +277,10 @@ function defaultClassicQuotation(): ClassicQuotation {
     attention: 'Procurement Team',
     fromPerson: 'Taninnuth Warittarasith',
     subject: buildClassicSubjectFromDescriptions([defaultDescription]),
-    deliveryTerm: 'FCA BANGKOK / KHLONG TOEI, THAILAND INCOTERMS 2020',
+    deliveryTerm: REQUESTED_DELIVERY_TERM,
     date: todayISO(),
     pages: '1 of 1',
-    refNo: 'FAHLADDA/TFX-2026-001',
+    refNo: buildDefaultClassicRef(),
     description: defaultItem.description,
     shippingMark: defaultItem.shippingMark,
     priceCurrency: 'USD',
@@ -256,14 +290,14 @@ function defaultClassicQuotation(): ClassicQuotation {
     minQtyUnit: defaultItem.quantityUnit,
     quoteQtyValue: defaultItem.quantityValue,
     quoteQtyUnit: defaultItem.quantityUnit,
-    paymentTerms: '100% Advance Payment',
+    paymentTerms: REQUESTED_PAYMENT_TERM,
+    paymentNote: FOB_TRIAL_SHIPMENT_NOTE,
     sellerBank: 'EXPORT IMPORT BANK OF THAILAND',
     bankAddress: 'EXIM BLDG., 14TH FLOOR, 1193 PHAHOLYOTHIN RD, PHAYATHAI, BANGKOK 10400',
     swiftCode: 'EXTHTHBKXXX',
-    fxRate: 32,
-    closingLine1:
-      'Hoping the above is acceptable to you. If you need further information, Please do not hesitate to',
-    closingLine2: 'contact us, we look forward for your favourable reply.',
+    fxRate: DEFAULT_FX_RATE,
+    closingLine1: REQUESTED_CLOSING_TEXT,
+    closingLine2: '',
     signName: 'Taninnuth Warittarasith',
     signTitle: 'Co-Founder',
     items: [defaultItem],
@@ -283,14 +317,18 @@ function hydrateClassicQuotation(source?: Partial<ClassicQuotation> | null): Cla
 
   const normalizedItems =
     source?.items?.length
-      ? source.items.map((item) => ({
-          ...defaultClassicQuotationItem(
+      ? source.items.map((item) => {
+          const defaultItem = defaultClassicQuotationItem(
             item.description || base.description,
             item.quantityValue ?? legacyQuantityValue,
             item.quantityUnit || legacyQuantityUnit,
-          ),
-          ...item,
-        }))
+          );
+          return {
+            ...defaultItem,
+            ...item,
+            note: item.note || defaultItem.note,
+          };
+        })
       : [
           {
             ...defaultClassicQuotationItem(
@@ -318,10 +356,47 @@ function hydrateClassicQuotation(source?: Partial<ClassicQuotation> | null): Cla
     minQtyUnit: firstItem.quantityUnit,
     quoteQtyValue: firstItem.quantityValue,
     quoteQtyUnit: firstItem.quantityUnit,
+    paymentNote: source?.paymentNote ?? base.paymentNote,
+    date: todayISO(),
+    refNo: normalizeClassicRef(source?.refNo || base.refNo, todayISO()),
   };
 
   if (!source?.subject || source.subject === defaultClassicQuotation().subject) {
     merged.subject = buildClassicSubjectFromDescriptions(normalizedItems.map((item) => item.description));
+  }
+
+  if (
+    !source?.deliveryTerm ||
+    source.deliveryTerm === 'FOB BANGKOK, THAILAND (Incoterms 2020)' ||
+    source.deliveryTerm === 'FCA BANGKOK / KHLONG TOEI, THAILAND INCOTERMS 2020'
+  ) {
+    merged.deliveryTerm = REQUESTED_DELIVERY_TERM;
+  }
+
+  if (!source?.paymentTerms || source.paymentTerms === '100% Advance Payment') {
+    merged.paymentTerms = REQUESTED_PAYMENT_TERM;
+  }
+
+  if (!source?.paymentNote || source.paymentNote === 'All banking fees outside Thailand are borne by the buyer.') {
+    merged.paymentNote = FOB_TRIAL_SHIPMENT_NOTE;
+  }
+
+  if (
+    !source?.closingLine1 ||
+    source.closingLine1 ===
+      'Hoping the above is acceptable to you. If you need further information, Please do not hesitate to' ||
+    source.closingLine1 ===
+      'We hope the above quotation is acceptable to you. If you need further information, please do not hesitate to contact us.'
+  ) {
+    merged.closingLine1 = REQUESTED_CLOSING_TEXT;
+  }
+
+  if (
+    !source?.closingLine2 ||
+    source.closingLine2 === 'contact us, we look forward for your favourable reply.' ||
+    source.closingLine2 === 'We look forward to your favourable reply.'
+  ) {
+    merged.closingLine2 = '';
   }
 
   return merged;
@@ -353,6 +428,21 @@ function formatDisplayDate(value: string) {
   return `${month} ${date.getDate()}, ${date.getFullYear()}`;
 }
 
+function addDaysIso(value: string, days: number) {
+  const [year, month, day] = value.split('-').map(Number);
+  const date =
+    year && month && day
+      ? new Date(year, month - 1, day)
+      : new Date();
+  if (Number.isNaN(date.getTime())) return value;
+  date.setDate(date.getDate() + days);
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, '0'),
+    String(date.getDate()).padStart(2, '0'),
+  ].join('-');
+}
+
 function blockLines(value: string) {
   return value
     .split('\n')
@@ -360,24 +450,63 @@ function blockLines(value: string) {
     .filter(Boolean);
 }
 
+function splitContactValue(value: string) {
+  const cleanValue = value.trim();
+  if (!cleanValue) return { name: '-', title: '' };
+  const [name, ...titleParts] = cleanValue.split(/\s+[-–—]\s+/);
+  return {
+    name: name.trim() || '-',
+    title: titleParts.join(' - ').trim(),
+  };
+}
+
 export default function ClassicQuotationPage() {
   const [quote, setQuote] = useState<ClassicQuotation>(() => readClassicDraft());
+  const [sharedFxRate, setSharedFxRate] = useSharedFxRate(quote.fxRate || DEFAULT_FX_RATE);
+  const [currentDate, setCurrentDate] = useState(todayISO());
   const [isOpeningPdf, setIsOpeningPdf] = useState(false);
   const [status, setStatus] = useState<ClassicStatus | null>(null);
   const [goodsPickerValue, setGoodsPickerValue] = useState('');
+  const [classicCalculatorResetKey, setClassicCalculatorResetKey] = useState(0);
 
   const update = <K extends keyof ClassicQuotation>(key: K, value: ClassicQuotation[K]) => {
     setQuote((current) => ({ ...current, [key]: value }));
   };
 
+  useEffect(() => {
+    setQuote((current) =>
+      current.fxRate === sharedFxRate ? current : { ...current, fxRate: sharedFxRate },
+    );
+  }, [sharedFxRate]);
+
+  useEffect(() => {
+    const updateLiveDate = () => setCurrentDate(todayISO());
+    updateLiveDate();
+    const interval = window.setInterval(updateLiveDate, 60_000);
+    return () => window.clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    setQuote((current) => {
+      const nextRefNo = normalizeClassicRef(current.refNo, currentDate);
+      if (current.date === currentDate && current.refNo === nextRefNo) return current;
+      return {
+        ...current,
+        date: currentDate,
+        refNo: nextRefNo,
+      };
+    });
+  }, [currentDate]);
+
   const syncItemsAndSubject = (items: ClassicQuotationItem[]) => {
     const normalizedItems = items.filter(
       (item) =>
-        item.description.trim() ||
-        item.shippingMark.trim() ||
+        (item.description || '').trim() ||
+        (item.note || '').trim() ||
+        (item.shippingMark || '').trim() ||
         item.priceValue > 0 ||
         item.quantityValue > 0,
-    );
+    ).map((item) => ({ ...defaultClassicQuotationItem(), ...item, note: item.note || '' }));
     const safeItems = normalizedItems.length ? normalizedItems : [defaultClassicQuotationItem()];
     const firstItem = safeItems[0];
     setQuote((current) => ({
@@ -409,7 +538,7 @@ export default function ClassicQuotationPage() {
 
   const updateItem = (index: number, patch: Partial<ClassicQuotationItem>) => {
     const next = quote.items.slice();
-    next[index] = { ...next[index], ...patch };
+    next[index] = { ...defaultClassicQuotationItem(), ...next[index], ...patch };
     syncItemsAndSubject(next);
   };
 
@@ -443,6 +572,17 @@ export default function ClassicQuotationPage() {
     ? quote.sellerBank
     : UNIT_CUSTOM_LABEL;
   const thbQuote = isThbQuote(quote.priceCurrency);
+  const priceCurrencyLabel = quote.priceCurrency.trim().toUpperCase() || 'USD';
+  const liveQuote: ClassicQuotation = {
+    ...quote,
+    items: quote.items.map((item) => ({ ...defaultClassicQuotationItem(), ...item, note: item.note || '' })),
+    paymentNote: quote.paymentNote || '',
+    date: currentDate,
+    refNo: normalizeClassicRef(quote.refNo, currentDate),
+  };
+  const validUntilDate = formatDisplayDate(addDaysIso(liveQuote.date, QUOTATION_VALIDITY_DAYS));
+  const attentionContact = splitContactValue(quote.attention);
+  const fromContact = splitContactValue(quote.fromPerson);
 
   const handleCopyStatusFilename = async () => {
     if (!status?.filename) return;
@@ -461,7 +601,7 @@ export default function ClassicQuotationPage() {
 
   const handleSaveClassicQuotation = () => {
     const savedAt = new Date();
-    const fileBaseName = buildClassicPdfBaseName(quote, savedAt);
+    const fileBaseName = buildClassicPdfBaseName(liveQuote, savedAt);
     const filename = `${fileBaseName}.json`;
     triggerDownload(
       new Blob(
@@ -469,7 +609,7 @@ export default function ClassicQuotationPage() {
           JSON.stringify(
             {
               savedAt: savedAt.toISOString(),
-              quote,
+              quote: liveQuote,
             },
             null,
             2,
@@ -484,6 +624,22 @@ export default function ClassicQuotationPage() {
       filename: fileBaseName,
       tail: '.json.',
       copied: false,
+    });
+  };
+
+  const handleResetClassicQuotation = () => {
+    const nextQuote = defaultClassicQuotation();
+    localStorage.removeItem(CLASSIC_QUOTATION_STORAGE_KEY);
+    localStorage.removeItem(CLASSIC_PRICE_CALCULATOR_STORAGE_KEY);
+    setQuote(nextQuote);
+    setSharedFxRate(nextQuote.fxRate || DEFAULT_FX_RATE);
+    setCurrentDate(nextQuote.date);
+    setGoodsPickerValue('');
+    setClassicCalculatorResetKey((current) => current + 1);
+    setStatus({
+      lead: 'Classic quotation reset.',
+      filename: '',
+      tail: '',
     });
   };
 
@@ -502,10 +658,10 @@ export default function ClassicQuotationPage() {
         import('@react-pdf/renderer'),
         import('./PDF/ClassicQuotationPDF'),
       ]);
-      const fileBaseName = buildClassicPdfBaseName(quote);
+      const fileBaseName = buildClassicPdfBaseName(liveQuote);
       const blob = await pdf(
         <ClassicQuotationPDF
-          quote={quote}
+          quote={liveQuote}
           defaultLogoSrc={new URL(DEFAULT_CLASSIC_LOGO_SRC, window.location.origin).toString()}
         />,
       ).toBlob();
@@ -650,33 +806,19 @@ export default function ClassicQuotationPage() {
                 <Label>Issued date</Label>
                 <Input
                   type="date"
-                  value={quote.date}
-                  onChange={(event) => update('date', event.target.value)}
+                  value={currentDate}
+                  readOnly
                 />
-              </div>
-              <div className="grid">
-                <Label>Pages</Label>
-                <Input
-                  value={quote.pages}
-                  onChange={(event) => update('pages', event.target.value)}
-                />
+                <span className="muted">Auto current date</span>
               </div>
               <div className="grid">
                 <Label>Our ref.</Label>
                 <Input
                   value={quote.refNo}
                   onChange={(event) => update('refNo', event.target.value)}
+                  onBlur={(event) => update('refNo', normalizeClassicRef(event.target.value, currentDate))}
                 />
-              </div>
-              <div className="grid full-span">
-                <Label>Subject line</Label>
-                <Input
-                  value={quote.subject}
-                  onChange={(event) => update('subject', event.target.value)}
-                />
-                <span className="muted">
-                  Subject line จะ sync ใหม่อัตโนมัติเมื่อมีการเปลี่ยน Description of goods
-                </span>
+                <span className="muted">Prefix: {buildClassicRefPrefix(currentDate)}</span>
               </div>
             </div>
           </Card>
@@ -734,19 +876,27 @@ export default function ClassicQuotationPage() {
                 ) : null}
               </div>
               <div className="grid">
-                <Label>Exchange rate</Label>
+                <Label>{thbQuote ? 'Shared FX rate' : `Shared FX rate (1 ${priceCurrencyLabel} = THB)`}</Label>
                 <Input
                   type="number"
                   step="0.01"
                   value={quote.fxRate}
-                  onChange={(event) => update('fxRate', Number(event.target.value) || 0)}
+                  onChange={(event) => {
+                    const nextFxRate = Number(event.target.value) || DEFAULT_FX_RATE;
+                    setSharedFxRate(nextFxRate);
+                    update('fxRate', nextFxRate);
+                  }}
                 />
                 {thbQuote ? (
                   <span className="muted">
                     THB quote: ไม่ต้องใช้ FX ในใบเสนอราคา exporter สามารถแปลงด้วย bank rate
                     ของตัวเอง
                   </span>
-                ) : null}
+                ) : (
+                  <span className="muted">
+                    ใช้แปลงราคาอ้างอิง THB ใน price map เป็น {priceCurrencyLabel}
+                  </span>
+                )}
               </div>
               <div className="grid">
                 <Label>Inquiry type</Label>
@@ -768,6 +918,7 @@ export default function ClassicQuotationPage() {
           <Card title="Products and buyer-facing proof">
             <div className="grid" style={{ gap: 16 }}>
               <MiniPriceCalculator
+                key={classicCalculatorResetKey}
                 fxRate={quote.fxRate}
                 storageKey={CLASSIC_PRICE_CALCULATOR_STORAGE_KEY}
               />
@@ -872,6 +1023,16 @@ export default function ClassicQuotationPage() {
                               rows={3}
                               value={item.description}
                               onChange={(event) => updateItem(index, { description: event.target.value })}
+                            />
+                          </div>
+
+                          <div className="grid" style={{ gap: 6 }}>
+                            <Label>Note</Label>
+                            <Textarea
+                              rows={2}
+                              value={item.note || ''}
+                              onChange={(event) => updateItem(index, { note: event.target.value })}
+                              placeholder="Optional buyer-facing note for this product"
                             />
                           </div>
 
@@ -995,6 +1156,13 @@ export default function ClassicQuotationPage() {
                 value={quote.swiftCode}
                 onChange={(event) => update('swiftCode', event.target.value)}
               />
+              <Label>Payment and bank note</Label>
+              <Textarea
+                rows={2}
+                value={quote.paymentNote || ''}
+                onChange={(event) => update('paymentNote', event.target.value)}
+                placeholder="Optional note shown under Payment and bank details"
+              />
               <div className="grid two-col">
                 <div className="grid">
                   <Label>Closing line 1</Label>
@@ -1061,6 +1229,13 @@ export default function ClassicQuotationPage() {
               </button>
               <button
                 type="button"
+                className="btn"
+                onClick={handleResetClassicQuotation}
+              >
+                Reset quotation
+              </button>
+              <button
+                type="button"
                 className="btn primary"
                 onClick={handleOpenClassicPdf}
                 disabled={isOpeningPdf}
@@ -1110,48 +1285,47 @@ export default function ClassicQuotationPage() {
               </header>
 
               <section className="quote-v2-top">
-                <div className="quote-v2-party quote-v2-party-wide">
-                  <div className="quote-v2-label">Seller</div>
-                  <strong>{quote.sellerName}</strong>
-                  {blockLines(quote.sellerAddress).map((line) => (
-                    <span key={line}>{line}</span>
-                  ))}
+                <div className="quote-v2-party quote-v2-party-wide quote-v2-seller-panel">
+                  <div className="quote-v2-seller-main">
+                    <div className="quote-v2-label">Seller</div>
+                    <strong>{quote.sellerName}</strong>
+                    {blockLines(quote.sellerAddress).map((line) => (
+                      <span key={line}>{line}</span>
+                    ))}
+                  </div>
+                  <div className="quote-v2-seller-contact">
+                    <span>From</span>
+                    <strong>{fromContact.name}</strong>
+                    {fromContact.title ? <em>{fromContact.title}</em> : null}
+                  </div>
                 </div>
                 <dl className="quote-v2-meta">
                   <div>
                     <dt>Date</dt>
-                    <dd>{formatDisplayDate(quote.date)}</dd>
-                  </div>
-                  <div>
-                    <dt>Pages</dt>
-                    <dd>{quote.pages}</dd>
+                    <dd>{formatDisplayDate(liveQuote.date)}</dd>
                   </div>
                   <div>
                     <dt>Our Ref.</dt>
-                    <dd>{quote.refNo}</dd>
+                    <dd>{liveQuote.refNo}</dd>
                   </div>
                 </dl>
-                <div className="quote-v2-party quote-v2-party-full">
-                  <div className="quote-v2-label">Buyer</div>
-                  <strong>{quote.buyerName}</strong>
-                  {blockLines(quote.buyerAddress).map((line) => (
-                    <span key={line}>{line}</span>
-                  ))}
-                </div>
-              </section>
-
-              <section className="quote-v2-strip">
-                <div>
-                  <span>Attn</span>
-                  <strong>{quote.attention || '-'}</strong>
-                </div>
-                <div>
-                  <span>From</span>
-                  <strong>{quote.fromPerson || '-'}</strong>
-                </div>
-                <div className="quote-v2-strip-wide">
-                  <span>Subject</span>
-                  <strong>{quote.subject}</strong>
+                <div className="quote-v2-party quote-v2-party-full quote-v2-buyer-panel">
+                  <div className="quote-v2-buyer-main">
+                    <div className="quote-v2-label">Buyer</div>
+                    <strong>{quote.buyerName}</strong>
+                    {blockLines(quote.buyerAddress).map((line) => (
+                      <span key={line}>{line}</span>
+                    ))}
+                  </div>
+                  <div className="quote-v2-buyer-contact">
+                    <div>
+                      <span>Attn</span>
+                      <strong>{attentionContact.name}</strong>
+                      {attentionContact.title ? (
+                        <em>{attentionContact.title}</em>
+                      ) : null}
+                    </div>
+                  </div>
                 </div>
               </section>
 
@@ -1165,74 +1339,104 @@ export default function ClassicQuotationPage() {
 
               <section className="quote-v2-goods">
                 <div className="quote-v2-section-title">Description of goods</div>
-                <div className="grid" style={{ gap: 12, marginTop: 8 }}>
-                  {quote.items.map((item, index) => (
-                    <div
-                      key={`${item.description}-${index}`}
-                      style={{
-                        paddingTop: index === 0 ? 0 : 12,
-                        borderTop: index === 0 ? 'none' : '1px solid var(--quote-line)',
-                      }}
-                    >
-                      <strong style={{ display: 'block', color: 'var(--quote-ink)', fontSize: 17, lineHeight: 1.25 }}>
-                        {item.description || '-'}
-                      </strong>
-                      <div className="quote-v2-goods-grid">
-                        <div>
-                          <span>Shipping mark</span>
-                          <strong>{item.shippingMark || '-'}</strong>
-                        </div>
-                        <div>
-                          <span>{`Price / ${item.priceUnit || '-'}`}</span>
-                          <strong>
-                            {quote.priceCurrency} {fmt(item.priceValue, 2)}
+                <div className="quote-v2-goods-list">
+                  {quote.items.map((item, index) => {
+                    const tierRows = buildClassicOrderTierRows(item, {
+                      currency: quote.priceCurrency,
+                      deliveryTerm: quote.deliveryTerm,
+                      fxRate: quote.fxRate,
+                    });
+                    const priceColumnLabel = tierRows[0]?.priceBasisLabel
+                      ? `Price / CTN (${tierRows[0].priceBasisLabel})`
+                      : 'Price / CTN';
+
+                    return (
+                      <div
+                        key={`${item.description}-${index}`}
+                        className={`quote-v2-goods-item ${index === 0 ? 'is-first' : ''}`}
+                      >
+                        <div className="quote-v2-goods-head">
+                          <strong className="quote-v2-goods-name">
+                            {item.description || '-'}
                           </strong>
+                          <div className="quote-v2-shipping-mark">
+                            <span>Shipping mark</span>
+                            <strong>{item.shippingMark || '-'}</strong>
+                          </div>
                         </div>
-                        <div>
-                          <span>{quote.inquiryType === 'QUOTE' ? 'Requested Qty' : 'Min. Qty / Order'}</span>
-                          <strong>{`${fmt(item.quantityValue, 0)} ${item.quantityUnit || ''}`.trim() || '-'}</strong>
-                        </div>
+                        {(item.note || '').trim() ? (
+                          <p className="quote-v2-goods-note">{item.note || ''}</p>
+                        ) : null}
+                        {tierRows.length ? (
+                          <table className="quote-v2-tier-table">
+                            <thead>
+                              <tr>
+                                <th>Order Tier</th>
+                                <th>Loading Basis</th>
+                                <th>Total CTN</th>
+                                <th>{priceColumnLabel}</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {tierRows.map((row) => (
+                                <tr key={row.tier}>
+                                  <td>{row.tier}</td>
+                                  <td>{row.loadingBasis}</td>
+                                  <td>{fmt(row.totalCtn, 0)} CTN</td>
+                                  <td>{formatClassicTierPrice(row)}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        ) : (
+                          <p className="quote-v2-scale-note">
+                            Add a known carton preset product to show automatic Trial / MOQ / FCL price tiers.
+                          </p>
+                        )}
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </section>
 
               <section className="quote-v2-payment">
                 <div className="quote-v2-payment-main">
-                  <div className="quote-v2-section-title">Payment and bank details</div>
+                  <div className="quote-v2-section-title">Payment terms</div>
                   <dl>
                     <div>
-                      <dt>Term of payment</dt>
+                      <dt>Payment Term</dt>
                       <dd>{quote.paymentTerms}</dd>
                     </div>
                     <div>
-                      <dt>Seller's bank</dt>
-                      <dd>{quote.sellerBank}</dd>
+                      <dt>Bank Details</dt>
+                      <dd>{BANK_DETAILS_AFTER_CONFIRMATION}</dd>
                     </div>
                     <div>
-                      <dt>Address</dt>
-                      <dd>{quote.bankAddress}</dd>
+                      <dt>Quotation Validity</dt>
+                      <dd>{QUOTATION_VALIDITY_DAYS} days from quotation date</dd>
                     </div>
                     <div>
-                      <dt>Swift code</dt>
-                      <dd>{quote.swiftCode}</dd>
+                      <dt>Valid until</dt>
+                      <dd>{validUntilDate}</dd>
                     </div>
                   </dl>
               </div>
               <div className="quote-v2-exchange">
                 <span>{thbQuote ? 'Currency basis' : 'Exchange rate'}</span>
                 <strong>
-                  {thbQuote ? 'THB quote - no FX applied' : `1 USD = ${fmt(quote.fxRate, 2)} THB`}
+                  {thbQuote
+                    ? 'THB quote - no FX applied'
+                    : `1 ${priceCurrencyLabel} = ${fmt(quote.fxRate, 2)} THB`}
                 </strong>
-                {thbQuote ? <small>Exporter may convert using own bank rate</small> : null}
+                <small>{thbQuote ? 'Exporter may convert using own bank rate' : EXCHANGE_VALIDITY_NOTE}</small>
               </div>
             </section>
 
               <section className="quote-v2-closing">
                 <div className="quote-v2-message">
-                  <p>{quote.closingLine1}</p>
-                  <p>{quote.closingLine2}</p>
+                  {blockLines(`${quote.closingLine1}\n${quote.closingLine2}`).map((line) => (
+                    <p key={line}>{line}</p>
+                  ))}
                 </div>
                 <div className="quote-v2-signature">
                   <p>Sincerely yours,</p>
