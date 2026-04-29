@@ -228,6 +228,18 @@ const styles = StyleSheet.create({
     fontWeight: 700,
     lineHeight: 1.25,
   },
+  goodsItem: {
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: colors.line,
+    borderTopStyle: 'solid',
+  },
+  goodsItemFirst: {
+    marginTop: 0,
+    paddingTop: 0,
+    borderTopWidth: 0,
+  },
   goodsGrid: {
     flexDirection: 'row',
     gap: 7,
@@ -336,8 +348,6 @@ type Props = {
 };
 
 export default function ClassicQuotationPDF({ quote, defaultLogoSrc }: Props) {
-  const activeQuantity = getQuantityDisplay(quote);
-  const quantityLabel = `${fmt(activeQuantity.value, 0)} ${activeQuantity.unit}`;
   const thbQuote = isThbQuote(quote.priceCurrency);
 
   return (
@@ -422,30 +432,34 @@ export default function ClassicQuotationPDF({ quote, defaultLogoSrc }: Props) {
 
         <View style={styles.goods} wrap={false}>
           <Text style={styles.label}>Description of goods</Text>
-          {blockLines(quote.description || '').map((line, index) => (
-            <Text
-              key={`${line}-${index}`}
-              style={index === 0 ? styles.goodsTitle : [styles.goodsTitle, { marginTop: 3 }]}
+          {quote.items.map((item, index) => (
+            <View
+              key={`${item.description}-${index}`}
+              style={index === 0 ? styles.goodsItemFirst : styles.goodsItem}
             >
-              {line}
-            </Text>
+              <Text style={styles.goodsTitle}>{item.description || '-'}</Text>
+              <View style={styles.goodsGrid}>
+                <View style={styles.goodsCell}>
+                  <Text style={styles.labelSoft}>Shipping mark</Text>
+                  <Text style={[styles.value, { marginTop: 6 }]}>{item.shippingMark || '-'}</Text>
+                </View>
+                <View style={styles.goodsCell}>
+                  <Text style={styles.labelSoft}>Price / {item.priceUnit || '-'}</Text>
+                  <Text style={[styles.value, { marginTop: 6 }]}>
+                    {quote.priceCurrency} {fmt(item.priceValue, 2)}
+                  </Text>
+                </View>
+                <View style={styles.goodsCell}>
+                  <Text style={styles.labelSoft}>
+                    {quote.inquiryType === 'QUOTE' ? 'Requested Qty' : 'Min. Qty / Order'}
+                  </Text>
+                  <Text style={[styles.value, { marginTop: 6 }]}>
+                    {`${fmt(item.quantityValue, 0)} ${item.quantityUnit || ''}`.trim() || '-'}
+                  </Text>
+                </View>
+              </View>
+            </View>
           ))}
-          <View style={styles.goodsGrid}>
-            <View style={styles.goodsCell}>
-              <Text style={styles.labelSoft}>Shipping mark</Text>
-              <Text style={[styles.value, { marginTop: 6 }]}>{quote.shippingMark}</Text>
-            </View>
-            <View style={styles.goodsCell}>
-              <Text style={styles.labelSoft}>Price / {quote.priceUnit}</Text>
-              <Text style={[styles.value, { marginTop: 6 }]}>
-                {quote.priceCurrency} {fmt(quote.priceValue, 2)}
-              </Text>
-            </View>
-            <View style={styles.goodsCell}>
-              <Text style={styles.labelSoft}>{activeQuantity.label}</Text>
-              <Text style={[styles.value, { marginTop: 6 }]}>{quantityLabel}</Text>
-            </View>
-          </View>
         </View>
 
         <View style={styles.paymentGrid} wrap={false}>

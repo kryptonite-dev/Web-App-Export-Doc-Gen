@@ -18,6 +18,15 @@ import {
   UNIT_CUSTOM_LABEL,
 } from '../constants';
 
+export type ClassicQuotationItem = {
+  description: string;
+  shippingMark: string;
+  priceValue: number;
+  priceUnit: string;
+  quantityValue: number;
+  quantityUnit: string;
+};
+
 export type ClassicQuotation = {
   logoDataUrl?: string;
   logoWidth: number;
@@ -51,6 +60,7 @@ export type ClassicQuotation = {
   closingLine2: string;
   signName: string;
   signTitle: string;
+  items: ClassicQuotationItem[];
 };
 
 const FIELD_GUIDE = [
@@ -171,7 +181,39 @@ function isThbQuote(currency: string) {
   return currency.trim().toUpperCase() === 'THB';
 }
 
+function defaultClassicQuotationItem(
+  description = GOODS_DESCRIPTION_PRESETS[0],
+  quantityValue = 2,
+  quantityUnit = 'PALLET',
+): ClassicQuotationItem {
+  return {
+    description,
+    shippingMark: 'HUQ KHUUN',
+    priceValue: 0,
+    priceUnit: 'CTN',
+    quantityValue,
+    quantityUnit,
+  };
+}
+
 export function getClassicQuantityDisplay(quote: ClassicQuotation) {
+  if (quote.items?.length) {
+    const total = quote.items.reduce((sum, item) => sum + (Number(item.quantityValue) || 0), 0);
+    const units = Array.from(
+      new Set(
+        quote.items
+          .map((item) => item.quantityUnit.trim())
+          .filter(Boolean),
+      ),
+    );
+
+    return {
+      label: quote.inquiryType === 'QUOTE' ? 'Requested Qty' : 'Min. Qty / Order',
+      value: total,
+      unit: units.length === 1 ? units[0] : 'ITEMS',
+    };
+  }
+
   if (quote.inquiryType === 'QUOTE') {
     return {
       label: 'Requested Qty',
@@ -189,6 +231,7 @@ export function getClassicQuantityDisplay(quote: ClassicQuotation) {
 
 function defaultClassicQuotation(): ClassicQuotation {
   const defaultDescription = GOODS_DESCRIPTION_PRESETS[0];
+  const defaultItem = defaultClassicQuotationItem(defaultDescription);
   return {
     logoDataUrl: undefined,
     logoWidth: 160,
@@ -204,15 +247,15 @@ function defaultClassicQuotation(): ClassicQuotation {
     date: todayISO(),
     pages: '1 of 1',
     refNo: 'FAHLADDA/TFX-2026-001',
-    description: defaultDescription,
-    shippingMark: 'HUQ KHUUN',
+    description: defaultItem.description,
+    shippingMark: defaultItem.shippingMark,
     priceCurrency: 'USD',
-    priceValue: 0,
-    priceUnit: 'CTN',
-    minQtyValue: 2,
-    minQtyUnit: 'PALLET',
-    quoteQtyValue: 2,
-    quoteQtyUnit: 'PALLET',
+    priceValue: defaultItem.priceValue,
+    priceUnit: defaultItem.priceUnit,
+    minQtyValue: defaultItem.quantityValue,
+    minQtyUnit: defaultItem.quantityUnit,
+    quoteQtyValue: defaultItem.quantityValue,
+    quoteQtyUnit: defaultItem.quantityUnit,
     paymentTerms: '100% Advance Payment',
     sellerBank: 'EXPORT IMPORT BANK OF THAILAND',
     bankAddress: 'EXIM BLDG., 14TH FLOOR, 1193 PHAHOLYOTHIN RD, PHAYATHAI, BANGKOK 10400',
@@ -223,19 +266,62 @@ function defaultClassicQuotation(): ClassicQuotation {
     closingLine2: 'contact us, we look forward for your favourable reply.',
     signName: 'Taninnuth Warittarasith',
     signTitle: 'Co-Founder',
+    items: [defaultItem],
   };
 }
 
 function hydrateClassicQuotation(source?: Partial<ClassicQuotation> | null): ClassicQuotation {
+  const base = defaultClassicQuotation();
+  const legacyQuantityValue =
+    source?.inquiryType === 'QUOTE'
+      ? source.quoteQtyValue ?? base.quoteQtyValue
+      : source?.minQtyValue ?? base.minQtyValue;
+  const legacyQuantityUnit =
+    source?.inquiryType === 'QUOTE'
+      ? source.quoteQtyUnit ?? base.quoteQtyUnit
+      : source?.minQtyUnit ?? base.minQtyUnit;
+
+  const normalizedItems =
+    source?.items?.length
+      ? source.items.map((item) => ({
+          ...defaultClassicQuotationItem(
+            item.description || base.description,
+            item.quantityValue ?? legacyQuantityValue,
+            item.quantityUnit || legacyQuantityUnit,
+          ),
+          ...item,
+        }))
+      : [
+          {
+            ...defaultClassicQuotationItem(
+              source?.description || base.description,
+              legacyQuantityValue,
+              legacyQuantityUnit,
+            ),
+            shippingMark: source?.shippingMark || base.shippingMark,
+            priceValue: source?.priceValue ?? base.priceValue,
+            priceUnit: source?.priceUnit || base.priceUnit,
+          },
+        ];
+
+  const firstItem = normalizedItems[0] || base.items[0];
+
   const merged = {
     ...defaultClassicQuotation(),
     ...(source || {}),
+    items: normalizedItems,
+    description: joinGoodsDescriptionLines(normalizedItems.map((item) => item.description)),
+    shippingMark: firstItem.shippingMark,
+    priceValue: firstItem.priceValue,
+    priceUnit: firstItem.priceUnit,
+    minQtyValue: firstItem.quantityValue,
+    minQtyUnit: firstItem.quantityUnit,
+    quoteQtyValue: firstItem.quantityValue,
+    quoteQtyUnit: firstItem.quantityUnit,
   };
 
   if (!source?.subject || source.subject === defaultClassicQuotation().subject) {
-    merged.subject = buildClassicSubjectFromDescriptions(
-      splitGoodsDescriptionLines(merged.description || ''),
-    );
+    merged.subject = buildClassicSubjectFromDescriptions(normalizedItems.map((item) => item.description));
   }
 
   return merged;
@@ -284,16 +370,28 @@ export default function ClassicQuotationPage() {
     setQuote((current) => ({ ...current, [key]: value }));
   };
 
-  const syncDescriptionAndSubject = (description: string) => {
-    const normalizedDescription = joinGoodsDescriptionLines(
-      splitGoodsDescriptionLines(description),
+  const syncItemsAndSubject = (items: ClassicQuotationItem[]) => {
+    const normalizedItems = items.filter(
+      (item) =>
+        item.description.trim() ||
+        item.shippingMark.trim() ||
+        item.priceValue > 0 ||
+        item.quantityValue > 0,
     );
+    const safeItems = normalizedItems.length ? normalizedItems : [defaultClassicQuotationItem()];
+    const firstItem = safeItems[0];
     setQuote((current) => ({
       ...current,
-      description: normalizedDescription,
-      subject: buildClassicSubjectFromDescriptions(
-        splitGoodsDescriptionLines(normalizedDescription),
-      ),
+      items: safeItems,
+      description: joinGoodsDescriptionLines(safeItems.map((item) => item.description)),
+      shippingMark: firstItem.shippingMark,
+      priceValue: firstItem.priceValue,
+      priceUnit: firstItem.priceUnit,
+      minQtyValue: firstItem.quantityValue,
+      minQtyUnit: firstItem.quantityUnit,
+      quoteQtyValue: firstItem.quantityValue,
+      quoteQtyUnit: firstItem.quantityUnit,
+      subject: buildClassicSubjectFromDescriptions(safeItems.map((item) => item.description)),
     }));
   };
 
@@ -309,47 +407,42 @@ export default function ClassicQuotationPage() {
     }));
   };
 
-  const addGoodsDescriptionPreset = (description: string) => {
-    const nextDescription = joinGoodsDescriptionLines([
-      ...splitGoodsDescriptionLines(quote.description || ''),
-      description,
-    ]);
-    syncDescriptionAndSubject(nextDescription);
+  const updateItem = (index: number, patch: Partial<ClassicQuotationItem>) => {
+    const next = quote.items.slice();
+    next[index] = { ...next[index], ...patch };
+    syncItemsAndSubject(next);
   };
 
-  const removeGoodsDescriptionLine = (description: string) => {
-    const nextDescription = joinGoodsDescriptionLines(
-      splitGoodsDescriptionLines(quote.description || '').filter((line) => line !== description),
-    );
-    syncDescriptionAndSubject(nextDescription);
+  const addGoodsDescriptionPreset = (description?: string) => {
+    const next = [
+      ...quote.items,
+      defaultClassicQuotationItem(
+        description || '',
+        quote.inquiryType === 'QUOTE' ? quote.quoteQtyValue : quote.minQtyValue,
+        quote.inquiryType === 'QUOTE' ? quote.quoteQtyUnit : quote.minQtyUnit,
+      ),
+    ];
+    syncItemsAndSubject(next);
+  };
+
+  const removeItem = (index: number) => {
+    syncItemsAndSubject(quote.items.filter((_, itemIndex) => itemIndex !== index));
   };
 
   useEffect(() => {
     localStorage.setItem(CLASSIC_QUOTATION_STORAGE_KEY, JSON.stringify(quote));
   }, [quote]);
 
-  const activeQuantity = getClassicQuantityDisplay(quote);
-  const quantityLabel = `${fmt(activeQuantity.value, 0)} ${activeQuantity.unit}`;
   const deliverySelectValue = isPreset(quote.deliveryTerm, INCOTERMS_PRESETS)
     ? quote.deliveryTerm
     : UNIT_CUSTOM_LABEL;
   const paymentSelectValue = isPreset(quote.paymentTerms, PAYMENT_PRESETS)
     ? quote.paymentTerms
     : UNIT_CUSTOM_LABEL;
-  const moqUnitSelectValue = isPreset(quote.minQtyUnit, MIN_QTY_UNIT_PRESETS)
-    ? quote.minQtyUnit
-    : UNIT_CUSTOM_LABEL;
-  const quoteQtyUnitSelectValue = isPreset(quote.quoteQtyUnit, MIN_QTY_UNIT_PRESETS)
-    ? quote.quoteQtyUnit
-    : UNIT_CUSTOM_LABEL;
-  const priceUnitSelectValue = isPreset(quote.priceUnit, LINE_ITEM_UNIT_PRESETS)
-    ? quote.priceUnit
-    : UNIT_CUSTOM_LABEL;
   const sellerBankSelectValue = THAI_BANK_PRESETS.some((bank) => bank.name === quote.sellerBank)
     ? quote.sellerBank
     : UNIT_CUSTOM_LABEL;
   const thbQuote = isThbQuote(quote.priceCurrency);
-  const goodsDescriptionLines = splitGoodsDescriptionLines(quote.description || '');
 
   const handleCopyStatusFilename = async () => {
     if (!status?.filename) return;
@@ -666,82 +759,9 @@ export default function ClassicQuotationPage() {
                   placeholder="Select inquiry type"
                 />
                 <span className="muted">
-                  MOQ = แจ้งขั้นต่ำ, QUOTE = ระบุจำนวนที่ลูกค้าขอราคา
+                  MOQ = แจ้งขั้นต่ำ, QUOTE = ระบุจำนวนที่ลูกค้าขอราคา โดย quantity จะแยกอยู่ในแต่ละสินค้า
                 </span>
               </div>
-              {quote.inquiryType === 'MOQ' ? (
-                <>
-                  <div className="grid">
-                    <Label>MOQ value</Label>
-                    <Input
-                      type="number"
-                      value={quote.minQtyValue}
-                      onChange={(event) => update('minQtyValue', Number(event.target.value) || 0)}
-                    />
-                  </div>
-                  <div className="grid">
-                    <Label>MOQ unit</Label>
-                    <Select
-                      value={moqUnitSelectValue}
-                      onChange={(value) => {
-                        if (value === UNIT_CUSTOM_LABEL) {
-                          update(
-                            'minQtyUnit',
-                            isPreset(quote.minQtyUnit, MIN_QTY_UNIT_PRESETS) ? '' : quote.minQtyUnit,
-                          );
-                          return;
-                        }
-                        update('minQtyUnit', value);
-                      }}
-                      options={[...MIN_QTY_UNIT_PRESETS, UNIT_CUSTOM_LABEL]}
-                      placeholder="Select unit"
-                    />
-                    {moqUnitSelectValue === UNIT_CUSTOM_LABEL ? (
-                      <Input
-                        value={quote.minQtyUnit}
-                        onChange={(event) => update('minQtyUnit', event.target.value)}
-                        placeholder="Custom MOQ unit"
-                      />
-                    ) : null}
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="grid">
-                    <Label>Requested quantity</Label>
-                    <Input
-                      type="number"
-                      value={quote.quoteQtyValue}
-                      onChange={(event) => update('quoteQtyValue', Number(event.target.value) || 0)}
-                    />
-                  </div>
-                  <div className="grid">
-                    <Label>Requested unit</Label>
-                    <Select
-                      value={quoteQtyUnitSelectValue}
-                      onChange={(value) => {
-                        if (value === UNIT_CUSTOM_LABEL) {
-                          update(
-                            'quoteQtyUnit',
-                            isPreset(quote.quoteQtyUnit, MIN_QTY_UNIT_PRESETS) ? '' : quote.quoteQtyUnit,
-                          );
-                          return;
-                        }
-                        update('quoteQtyUnit', value);
-                      }}
-                      options={[...MIN_QTY_UNIT_PRESETS, UNIT_CUSTOM_LABEL]}
-                      placeholder="Select unit"
-                    />
-                    {quoteQtyUnitSelectValue === UNIT_CUSTOM_LABEL ? (
-                      <Input
-                        value={quote.quoteQtyUnit}
-                        onChange={(event) => update('quoteQtyUnit', event.target.value)}
-                        placeholder="Custom requested unit"
-                      />
-                    ) : null}
-                  </div>
-                </>
-              )}
             </div>
           </Card>
 
@@ -759,6 +779,7 @@ export default function ClassicQuotationPage() {
                     value={goodsPickerValue}
                     onChange={(value) => {
                       if (value === GOODS_DESCRIPTION_CUSTOM_LABEL) {
+                        addGoodsDescriptionPreset('');
                         setGoodsPickerValue('');
                         return;
                       }
@@ -769,47 +790,8 @@ export default function ClassicQuotationPage() {
                     placeholder="Add product description"
                   />
                   <span className="muted">
-                    เลือก preset ได้หลายครั้งเพื่อเพิ่มหลายสินค้า และพิมพ์ custom เพิ่มเองในช่องด้านล่างได้
+                    เลือก preset เพื่อเพิ่มสินค้าแต่ละรายการ หรือเลือก Custom เพื่อเพิ่มรายการเปล่าแล้วกรอกเอง
                   </span>
-                </div>
-                <div className="grid full-span">
-                  <Label>Selected goods</Label>
-                  <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
-                    {goodsDescriptionLines.length ? (
-                      goodsDescriptionLines.map((line) => (
-                        <button
-                          key={line}
-                          type="button"
-                          className="btn"
-                          onClick={() => removeGoodsDescriptionLine(line)}
-                          style={{
-                            background: 'rgba(21, 37, 56, 0.06)',
-                            borderColor: 'rgba(21, 37, 56, 0.08)',
-                            color: '#152538',
-                          }}
-                        >
-                          {line} ×
-                        </button>
-                      ))
-                    ) : (
-                      <span className="muted">ยังไม่ได้เลือกสินค้า</span>
-                    )}
-                  </div>
-                </div>
-                <div className="grid full-span">
-                  <Label>Description of goods</Label>
-                  <Textarea
-                    rows={5}
-                    value={quote.description}
-                    onChange={(event) => syncDescriptionAndSubject(event.target.value)}
-                  />
-                </div>
-                <div className="grid">
-                  <Label>Shipping mark</Label>
-                  <Input
-                    value={quote.shippingMark}
-                    onChange={(event) => update('shippingMark', event.target.value)}
-                  />
                 </div>
                 <div className="grid">
                   <Label>Price currency</Label>
@@ -820,39 +802,153 @@ export default function ClassicQuotationPage() {
                     placeholder="Select currency"
                   />
                 </div>
-                <div className="grid">
-                  <Label>Price / unit</Label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    value={quote.priceValue}
-                    onChange={(event) => update('priceValue', Number(event.target.value) || 0)}
-                  />
-                </div>
-                <div className="grid">
-                  <Label>Price unit</Label>
-                  <Select
-                    value={priceUnitSelectValue}
-                    onChange={(value) => {
-                      if (value === UNIT_CUSTOM_LABEL) {
-                        update(
-                          'priceUnit',
-                          isPreset(quote.priceUnit, LINE_ITEM_UNIT_PRESETS) ? '' : quote.priceUnit,
-                        );
-                        return;
-                      }
-                      update('priceUnit', value);
-                    }}
-                    options={[...LINE_ITEM_UNIT_PRESETS, UNIT_CUSTOM_LABEL]}
-                    placeholder="Choose unit"
-                  />
-                  {priceUnitSelectValue === UNIT_CUSTOM_LABEL ? (
-                    <Input
-                      value={quote.priceUnit}
-                      onChange={(event) => update('priceUnit', event.target.value)}
-                      placeholder="Custom price unit"
-                    />
-                  ) : null}
+                <div className="grid full-span" style={{ gap: 12 }}>
+                  {quote.items.map((item, index) => {
+                    const descriptionSelectValue = GOODS_DESCRIPTION_PRESETS.includes(item.description)
+                      ? item.description
+                      : GOODS_DESCRIPTION_CUSTOM_LABEL;
+                    const itemPriceUnitSelectValue = isPreset(item.priceUnit, LINE_ITEM_UNIT_PRESETS)
+                      ? item.priceUnit
+                      : UNIT_CUSTOM_LABEL;
+                    const itemQuantityUnitSelectValue = isPreset(item.quantityUnit, MIN_QTY_UNIT_PRESETS)
+                      ? item.quantityUnit
+                      : UNIT_CUSTOM_LABEL;
+
+                    return (
+                      <div
+                        key={`${item.description}-${index}`}
+                        style={{
+                          border: '1px solid rgba(21, 37, 56, 0.1)',
+                          borderRadius: 22,
+                          padding: 16,
+                          background: 'rgba(255, 255, 255, 0.78)',
+                          boxShadow: '0 14px 28px rgba(17, 31, 47, 0.06)',
+                        }}
+                      >
+                        <div
+                          className="row"
+                          style={{ justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}
+                        >
+                          <div className="grid" style={{ gap: 4 }}>
+                            <div className="label">Product line {index + 1}</div>
+                            <div className="muted" style={{ fontSize: 12 }}>
+                              แยก Shipping mark, Price และ {quote.inquiryType === 'QUOTE' ? 'Requested Qty' : 'MOQ'} ต่อรายการสินค้า
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            className="btn"
+                            onClick={() => removeItem(index)}
+                            style={{
+                              color: '#9a4c3f',
+                              borderColor: 'rgba(178, 75, 61, 0.18)',
+                              background: 'rgba(178, 75, 61, 0.06)',
+                            }}
+                          >
+                            Remove
+                          </button>
+                        </div>
+
+                        <div className="grid" style={{ gap: 12, marginTop: 14 }}>
+                          <div className="grid" style={{ gap: 6 }}>
+                            <Label>Description template</Label>
+                            <Select
+                              value={descriptionSelectValue}
+                              onChange={(value) => {
+                                if (value === GOODS_DESCRIPTION_CUSTOM_LABEL) {
+                                  updateItem(index, { description: '' });
+                                  return;
+                                }
+                                updateItem(index, { description: value });
+                              }}
+                              options={[...GOODS_DESCRIPTION_PRESETS, GOODS_DESCRIPTION_CUSTOM_LABEL]}
+                              placeholder="Choose a product"
+                            />
+                          </div>
+
+                          <div className="grid" style={{ gap: 6 }}>
+                            <Label>Description of goods</Label>
+                            <Textarea
+                              rows={3}
+                              value={item.description}
+                              onChange={(event) => updateItem(index, { description: event.target.value })}
+                            />
+                          </div>
+
+                          <div className="grid two-col">
+                            <div className="grid">
+                              <Label>Shipping mark</Label>
+                              <Input
+                                value={item.shippingMark}
+                                onChange={(event) => updateItem(index, { shippingMark: event.target.value })}
+                              />
+                            </div>
+                            <div className="grid">
+                              <Label>Price / unit</Label>
+                              <Input
+                                type="number"
+                                step="0.01"
+                                value={item.priceValue}
+                                onChange={(event) => updateItem(index, { priceValue: Number(event.target.value) || 0 })}
+                              />
+                            </div>
+                            <div className="grid">
+                              <Label>Price unit</Label>
+                              <Select
+                                value={itemPriceUnitSelectValue}
+                                onChange={(value) => {
+                                  if (value === UNIT_CUSTOM_LABEL) {
+                                    updateItem(index, { priceUnit: '' });
+                                    return;
+                                  }
+                                  updateItem(index, { priceUnit: value });
+                                }}
+                                options={[...LINE_ITEM_UNIT_PRESETS, UNIT_CUSTOM_LABEL]}
+                                placeholder="Choose unit"
+                              />
+                              {itemPriceUnitSelectValue === UNIT_CUSTOM_LABEL ? (
+                                <Input
+                                  value={item.priceUnit}
+                                  onChange={(event) => updateItem(index, { priceUnit: event.target.value })}
+                                  placeholder="Custom price unit"
+                                />
+                              ) : null}
+                            </div>
+                            <div className="grid">
+                              <Label>{quote.inquiryType === 'QUOTE' ? 'Requested Qty' : 'MOQ value'}</Label>
+                              <Input
+                                type="number"
+                                value={item.quantityValue}
+                                onChange={(event) => updateItem(index, { quantityValue: Number(event.target.value) || 0 })}
+                              />
+                            </div>
+                            <div className="grid">
+                              <Label>{quote.inquiryType === 'QUOTE' ? 'Requested unit' : 'MOQ unit'}</Label>
+                              <Select
+                                value={itemQuantityUnitSelectValue}
+                                onChange={(value) => {
+                                  if (value === UNIT_CUSTOM_LABEL) {
+                                    updateItem(index, { quantityUnit: '' });
+                                    return;
+                                  }
+                                  updateItem(index, { quantityUnit: value });
+                                }}
+                                options={[...MIN_QTY_UNIT_PRESETS, UNIT_CUSTOM_LABEL]}
+                                placeholder="Choose unit"
+                              />
+                              {itemQuantityUnitSelectValue === UNIT_CUSTOM_LABEL ? (
+                                <Input
+                                  value={item.quantityUnit}
+                                  onChange={(event) => updateItem(index, { quantityUnit: event.target.value })}
+                                  placeholder="Custom quantity unit"
+                                />
+                              ) : null}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -1069,26 +1165,36 @@ export default function ClassicQuotationPage() {
 
               <section className="quote-v2-goods">
                 <div className="quote-v2-section-title">Description of goods</div>
-                <div className="grid" style={{ gap: 4 }}>
-                  {goodsDescriptionLines.map((line) => (
-                    <strong key={line}>{line}</strong>
+                <div className="grid" style={{ gap: 12, marginTop: 8 }}>
+                  {quote.items.map((item, index) => (
+                    <div
+                      key={`${item.description}-${index}`}
+                      style={{
+                        paddingTop: index === 0 ? 0 : 12,
+                        borderTop: index === 0 ? 'none' : '1px solid var(--quote-line)',
+                      }}
+                    >
+                      <strong style={{ display: 'block', color: 'var(--quote-ink)', fontSize: 17, lineHeight: 1.25 }}>
+                        {item.description || '-'}
+                      </strong>
+                      <div className="quote-v2-goods-grid">
+                        <div>
+                          <span>Shipping mark</span>
+                          <strong>{item.shippingMark || '-'}</strong>
+                        </div>
+                        <div>
+                          <span>{`Price / ${item.priceUnit || '-'}`}</span>
+                          <strong>
+                            {quote.priceCurrency} {fmt(item.priceValue, 2)}
+                          </strong>
+                        </div>
+                        <div>
+                          <span>{quote.inquiryType === 'QUOTE' ? 'Requested Qty' : 'Min. Qty / Order'}</span>
+                          <strong>{`${fmt(item.quantityValue, 0)} ${item.quantityUnit || ''}`.trim() || '-'}</strong>
+                        </div>
+                      </div>
+                    </div>
                   ))}
-                </div>
-                <div className="quote-v2-goods-grid">
-                  <div>
-                    <span>Shipping mark</span>
-                    <strong>{quote.shippingMark}</strong>
-                  </div>
-                  <div>
-                    <span>{`Price / ${quote.priceUnit}`}</span>
-                    <strong>
-                      {quote.priceCurrency} {fmt(quote.priceValue, 2)}
-                    </strong>
-                  </div>
-                  <div>
-                    <span>{activeQuantity.label}</span>
-                    <strong>{quantityLabel}</strong>
-                  </div>
                 </div>
               </section>
 
