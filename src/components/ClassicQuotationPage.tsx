@@ -59,6 +59,10 @@ export type ClassicQuotation = {
   sellerBank: string;
   bankAddress: string;
   swiftCode: string;
+  proformaDestination: string;
+  proformaCarrierVoyage: string;
+  proformaCollectingBank: string;
+  proformaShipmentDate: string;
   fxRate: number;
   closingLine1: string;
   closingLine2: string;
@@ -98,9 +102,9 @@ const FOB_TRIAL_SHIPMENT_NOTE =
   "For trial pallet order, shipment shall be coordinated with buyer's nominated forwarder.\nOcean freight, insurance, destination charges, import duties, and taxes are excluded.";
 const EXCHANGE_VALIDITY_NOTE = 'Prices are valid within the validity period.';
 const isPreset = (value: string, presets: string[]) => presets.includes(value);
-const CURRENCY_OPTIONS = ['USD', 'THB', 'EUR', 'AED'];
+export const CURRENCY_OPTIONS = ['USD', 'THB', 'EUR', 'AED'];
 const INQUIRY_TYPE_OPTIONS = ['MOQ', 'QUOTE'];
-const THAI_BANK_PRESETS = [
+export const THAI_BANK_PRESETS = [
   {
     name: 'EXPORT IMPORT BANK OF THAILAND',
     swift: 'EXTHTHBKXXX',
@@ -198,7 +202,7 @@ function formatQuantityFilenameValue(value: number) {
     : value.toFixed(3).replace(/\.?0+$/, '').replace('.', '-');
 }
 
-function buildClassicPdfBaseName(quote: ClassicQuotation, date = new Date()) {
+export function buildClassicPdfBaseName(quote: ClassicQuotation, date = new Date()) {
   const buyer = quote.buyerName || quote.attention || quote.refNo || 'classic-quotation';
   const activeQuantity = getClassicQuantityDisplay(quote);
   const qty = `${formatQuantityFilenameValue(activeQuantity.value)}${activeQuantity.unit || 'unit'}`
@@ -212,7 +216,7 @@ function isThbQuote(currency: string) {
   return currency.trim().toUpperCase() === 'THB';
 }
 
-function defaultClassicQuotationItem(
+export function defaultClassicQuotationItem(
   description = GOODS_DESCRIPTION_PRESETS[0],
   quantityValue = 2,
   quantityUnit = 'PALLET',
@@ -263,7 +267,7 @@ export function getClassicQuantityDisplay(quote: ClassicQuotation) {
   };
 }
 
-function defaultClassicQuotation(): ClassicQuotation {
+export function defaultClassicQuotation(): ClassicQuotation {
   const defaultDescription = GOODS_DESCRIPTION_PRESETS[0];
   const defaultItem = defaultClassicQuotationItem(defaultDescription);
   return {
@@ -295,6 +299,10 @@ function defaultClassicQuotation(): ClassicQuotation {
     sellerBank: 'EXPORT IMPORT BANK OF THAILAND',
     bankAddress: 'EXIM BLDG., 14TH FLOOR, 1193 PHAHOLYOTHIN RD, PHAYATHAI, BANGKOK 10400',
     swiftCode: 'EXTHTHBKXXX',
+    proformaDestination: 'To be advised',
+    proformaCarrierVoyage: 'To be advised',
+    proformaCollectingBank: "Buyer's nominated bank / To be advised",
+    proformaShipmentDate: 'To be confirmed after order confirmation',
     fxRate: DEFAULT_FX_RATE,
     closingLine1: REQUESTED_CLOSING_TEXT,
     closingLine2: '',
@@ -304,7 +312,7 @@ function defaultClassicQuotation(): ClassicQuotation {
   };
 }
 
-function hydrateClassicQuotation(source?: Partial<ClassicQuotation> | null): ClassicQuotation {
+export function hydrateClassicQuotation(source?: Partial<ClassicQuotation> | null): ClassicQuotation {
   const base = defaultClassicQuotation();
   const legacyQuantityValue =
     source?.inquiryType === 'QUOTE'
@@ -402,7 +410,7 @@ function hydrateClassicQuotation(source?: Partial<ClassicQuotation> | null): Cla
   return merged;
 }
 
-function readClassicDraft() {
+export function readClassicDraft() {
   try {
     return hydrateClassicQuotation(JSON.parse(localStorage.getItem(CLASSIC_QUOTATION_STORAGE_KEY) || 'null'));
   } catch {

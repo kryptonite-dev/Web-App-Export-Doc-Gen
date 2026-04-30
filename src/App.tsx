@@ -10,6 +10,7 @@ import ClassicQuotationPage, {
   CLASSIC_PRICE_CALCULATOR_STORAGE_KEY,
   CLASSIC_QUOTATION_STORAGE_KEY,
 } from './components/ClassicQuotationPage';
+import ProformaInvoicePage from './components/ProformaInvoicePage';
 import { Card, Input, Label, Select, Textarea } from './components/ui';
 import { DEFAULT_FX_RATE, useSharedFxRate } from './sharedFxRate';
 import {
@@ -24,7 +25,7 @@ import {
 import { CommonDoc, Currency, Party } from './types';
 import { todayISO } from './utils';
 
-type AppPage = 'proposal' | 'loading' | 'quote' | 'classic';
+type AppPage = 'proposal' | 'loading' | 'quote' | 'classic' | 'proforma';
 type StatusState =
   | {
       text: string;
@@ -286,7 +287,9 @@ function getRouteContext() {
         ? 'quote'
         : pageParam === 'classic'
           ? 'classic'
-          : 'proposal';
+          : pageParam === 'proforma'
+            ? 'proforma'
+            : 'proposal';
   return {
     isClientView: params.get('view') === 'client',
     sharedDoc: decodeSharePayload(params.get('payload')),
@@ -426,6 +429,7 @@ function App() {
   const [loadingCalculatorKey, setLoadingCalculatorKey] = useState(0);
   const [quickQuoteKey, setQuickQuoteKey] = useState(0);
   const [classicQuotationKey, setClassicQuotationKey] = useState(0);
+  const [proformaInvoiceKey, setProformaInvoiceKey] = useState(0);
   const [doc, setDoc] = useState<CommonDoc>(() => {
     if (route.sharedDoc) return hydrateDoc(route.sharedDoc);
     return hydrateDoc(safeParseDraft(localStorage.getItem(STORAGE_KEY)));
@@ -455,7 +459,9 @@ function App() {
           ? 'FCA / FOB Quick Quote'
           : page === 'classic'
             ? 'Classic Export Quotation'
-          : 'ThaiFex Sales Proposal Studio';
+            : page === 'proforma'
+              ? 'Proforma Invoice'
+              : 'ThaiFex Sales Proposal Studio';
   }, [doc.subject, page, route.isClientView]);
 
   const deliveryPresetSelected = INCOTERMS_PRESETS.includes(doc.deliveryTerms);
@@ -702,6 +708,8 @@ function App() {
       url.searchParams.set('page', 'quote');
     } else if (next === 'classic') {
       url.searchParams.set('page', 'classic');
+    } else if (next === 'proforma') {
+      url.searchParams.set('page', 'proforma');
     } else {
       url.searchParams.delete('page');
     }
@@ -767,6 +775,12 @@ function App() {
             >
               Classic quotation
             </button>
+            <button
+              className={`btn ${page === 'proforma' ? 'primary' : ''}`}
+              onClick={() => handlePageChange('proforma')}
+            >
+              Proforma invoice
+            </button>
           </div>
           <div className="app-kicker">
             {page === 'loading'
@@ -775,6 +789,8 @@ function App() {
                 ? 'Trade-show quick quote'
                 : page === 'classic'
                   ? 'Excel-style export quotation'
+                  : page === 'proforma'
+                    ? 'Order-confirmation invoice'
                 : 'ThaiFex sales workflow'}
           </div>
           <h1>
@@ -784,6 +800,8 @@ function App() {
                 ? 'FCA / FOB Quick Quote'
                 : page === 'classic'
                   ? 'Classic Export Quotation'
+                  : page === 'proforma'
+                    ? 'Proforma Invoice'
                 : 'ThaiFex Sales Proposal Studio'}
           </h1>
           <p>
@@ -793,6 +811,8 @@ function App() {
                 ? 'Answer EXW, FCA, and FOB price questions quickly, convert trade-show THB assumptions into USD, and copy USD / CTN values back into the quotation.'
                 : page === 'classic'
                   ? 'Create a separate Excel-style export quotation that follows the attached workbook layout without touching the existing buyer proposal flow.'
+                  : page === 'proforma'
+                    ? 'Generate a proforma invoice from the same Classic quotation data: seller, buyer, products, order quantity, price basis, bank details, and FX rate.'
                 : 'Prepare one buyer-ready quotation, open it as an online proposal on a second screen, and export the same content to PDF without reformatting.'}
           </p>
         </div>
@@ -833,16 +853,22 @@ function App() {
                     ? setLoadingCalculatorKey((current) => current + 1)
                     : page === 'quote'
                       ? setQuickQuoteKey((current) => current + 1)
-                      : (localStorage.removeItem(CLASSIC_QUOTATION_STORAGE_KEY),
-                        localStorage.removeItem(CLASSIC_PRICE_CALCULATOR_STORAGE_KEY),
-                        setClassicQuotationKey((current) => current + 1))
+                      : page === 'classic'
+                        ? (localStorage.removeItem(CLASSIC_QUOTATION_STORAGE_KEY),
+                          localStorage.removeItem(CLASSIC_PRICE_CALCULATOR_STORAGE_KEY),
+                          setClassicQuotationKey((current) => current + 1))
+                        : (localStorage.removeItem(CLASSIC_QUOTATION_STORAGE_KEY),
+                          localStorage.removeItem(CLASSIC_PRICE_CALCULATOR_STORAGE_KEY),
+                          setProformaInvoiceKey((current) => current + 1))
                 }
               >
                 {page === 'loading'
                   ? 'Reset calculator'
                   : page === 'quote'
                     ? 'Reset quote'
-                    : 'Reset classic quotation'}
+                    : page === 'classic'
+                      ? 'Reset classic quotation'
+                      : 'Reset proforma invoice'}
               </button>
             </>
           )}
@@ -1303,6 +1329,8 @@ function App() {
         <LoadingCalculatorPage key={loadingCalculatorKey} />
       ) : page === 'quote' ? (
         <QuickQuotePage key={quickQuoteKey} />
+      ) : page === 'proforma' ? (
+        <ProformaInvoicePage key={proformaInvoiceKey} />
       ) : (
         <ClassicQuotationPage key={classicQuotationKey} />
       )}
