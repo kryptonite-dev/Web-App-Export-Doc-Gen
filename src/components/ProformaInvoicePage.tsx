@@ -38,6 +38,33 @@ const QUOTATION_VALIDITY_DAYS = 14;
 const EXCHANGE_VALIDITY_NOTE = 'Prices are valid within the validity period.';
 const INQUIRY_TYPE_OPTIONS = ['MOQ', 'QUOTE'];
 
+export type InvoiceDocumentType = 'proforma' | 'commercial';
+
+export function getInvoiceDocumentConfig(documentType: InvoiceDocumentType = 'proforma') {
+  const isCommercial = documentType === 'commercial';
+  return {
+    documentType,
+    modeCode: isCommercial ? 'CI' : 'PI',
+    documentTitle: isCommercial ? 'COMMERCIAL INVOICE' : 'PROFORMA INVOICE',
+    pageLabel: isCommercial ? 'Commercial invoice' : 'Proforma invoice',
+    previewTitle: isCommercial ? 'Commercial invoice preview' : 'Proforma invoice preview',
+    saveButtonLabel: isCommercial ? 'Save invoice' : 'Save proforma',
+    refreshLead: isCommercial
+      ? 'Commercial invoice refreshed from Classic quotation.'
+      : 'Proforma invoice refreshed from Classic quotation.',
+    saveLead: isCommercial ? 'Commercial invoice data saved as' : 'Proforma data saved as',
+    filePrefix: isCommercial ? 'Commercial_Invoice_' : 'Proforma_Invoice_',
+    numberLabel: isCommercial ? 'Invoice No.' : 'Proforma No.',
+    dateLabel: isCommercial ? 'Invoice Date' : 'Proforma Date',
+    dateInputLabel: isCommercial ? 'Invoice date' : 'Proforma date',
+    pdfTitle: isCommercial ? 'commercial invoice' : 'proforma invoice',
+    quantityHint: isCommercial
+      ? 'Quantity นี้ใช้คำนวณ CTN, PCS, amount ใน commercial invoice'
+      : 'Quantity นี้ใช้คำนวณ CTN, PCS, amount ใน proforma invoice',
+    showValidity: !isCommercial,
+  };
+}
+
 type ProformaStatus = {
   lead: string;
   filename: string;
@@ -177,13 +204,19 @@ function amountInWords(currency: string, amount: number) {
   return `${currencyLabel} ${integerToWords(major)}${minorText} Only`;
 }
 
-function buildProformaPdfBaseName(quote: ClassicQuotation, date = new Date()) {
-  return buildClassicPdfBaseName(quote, date).replace(/^Quotation_/, 'Proforma_Invoice_');
+function buildInvoicePdfBaseName(
+  quote: ClassicQuotation,
+  documentType: InvoiceDocumentType = 'proforma',
+  date = new Date(),
+) {
+  const { filePrefix } = getInvoiceDocumentConfig(documentType);
+  return buildClassicPdfBaseName(quote, date).replace(/^Quotation_/, filePrefix);
 }
 
-function buildProformaNo(refNo: string) {
+function buildInvoiceNo(refNo: string, documentType: InvoiceDocumentType = 'proforma') {
   const cleanRef = refNo.trim() || 'QUO';
-  return cleanRef.toUpperCase().startsWith('PI-') ? cleanRef : `PI-${cleanRef}`;
+  const prefix = documentType === 'commercial' ? 'CI-' : 'PI-';
+  return cleanRef.toUpperCase().startsWith(prefix) ? cleanRef : `${prefix}${cleanRef}`;
 }
 
 function derivePortOfLoading(deliveryTerm: string) {
@@ -321,7 +354,14 @@ function triggerDownload(blob: Blob, filename: string) {
   }, 60_000);
 }
 
-export default function ProformaInvoicePage() {
+type ProformaInvoicePageProps = {
+  documentType?: InvoiceDocumentType;
+};
+
+export default function ProformaInvoicePage({
+  documentType = 'proforma',
+}: ProformaInvoicePageProps) {
+  const documentConfig = getInvoiceDocumentConfig(documentType);
   const [quote, setQuote] = useState<ClassicQuotation>(() => readClassicDraft());
   const [sharedFxRate, setSharedFxRate] = useSharedFxRate(quote.fxRate || DEFAULT_FX_RATE);
   const [isOpeningPdf, setIsOpeningPdf] = useState(false);
@@ -332,7 +372,7 @@ export default function ProformaInvoicePage() {
   const currency = normalizeCurrency(quote.priceCurrency);
   const thbQuote = isThbQuote(currency);
   const validUntilDate = formatDisplayDate(addDaysIso(quote.date, QUOTATION_VALIDITY_DAYS));
-  const proformaNo = buildProformaNo(quote.refNo);
+  const proformaNo = buildInvoiceNo(quote.refNo, documentType);
   const totalAmount = totalBy(lines, 'amount');
   const totalCtn = totalBy(lines, 'quantityCtn');
   const totalPieces = totalBy(lines, 'pieces');
@@ -429,7 +469,7 @@ export default function ProformaInvoicePage() {
     setQuote(nextQuote);
     setSharedFxRate(nextQuote.fxRate || DEFAULT_FX_RATE);
     setStatus({
-      lead: 'Proforma invoice refreshed from Classic quotation.',
+      lead: documentConfig.refreshLead,
       filename: '',
       tail: '',
     });
@@ -452,7 +492,7 @@ export default function ProformaInvoicePage() {
 
   const handleSaveProformaData = () => {
     const savedAt = new Date();
-    const fileBaseName = buildProformaPdfBaseName(quote, savedAt);
+    const fileBaseName = buildInvoicePdfBaseName(quote, documentType, savedAt);
     triggerDownload(
       new Blob(
         [
@@ -460,7 +500,7 @@ export default function ProformaInvoicePage() {
             {
               savedAt: savedAt.toISOString(),
               quote,
-              proformaNo,
+              invoiceNo: proformaNo,
               lines,
             },
             null,
@@ -472,7 +512,7 @@ export default function ProformaInvoicePage() {
       `${fileBaseName}.json`,
     );
     setStatus({
-      lead: 'Proforma data saved as',
+      lead: documentConfig.saveLead,
       filename: fileBaseName,
       tail: '.json.',
       copied: false,
@@ -494,11 +534,12 @@ export default function ProformaInvoicePage() {
         import('@react-pdf/renderer'),
         import('./PDF/ProformaInvoicePDF'),
       ]);
-      const fileBaseName = buildProformaPdfBaseName(quote);
+      const fileBaseName = buildInvoicePdfBaseName(quote, documentType);
       const blob = await pdf(
         <ProformaInvoicePDF
           quote={quote}
           defaultLogoSrc={new URL(DEFAULT_CLASSIC_LOGO_SRC, window.location.origin).toString()}
+          documentType={documentType}
         />,
       ).toBlob();
       const file =
@@ -548,7 +589,7 @@ export default function ProformaInvoicePage() {
             <div className="score-row">
               <div>
                 <div className="score-label">Input mode</div>
-                <div className="score-value">PI</div>
+                <div className="score-value">{documentConfig.modeCode}</div>
               </div>
               <div className="muted">
                 แก้ข้อมูลตรงนี้แล้วระบบบันทึกลง draft เดียวกับ Classic quotation ทันที
@@ -623,7 +664,7 @@ export default function ProformaInvoicePage() {
                 />
               </div>
               <div className="grid">
-                <Label>Proforma date</Label>
+                <Label>{documentConfig.dateInputLabel}</Label>
                 <Input
                   type="date"
                   value={quote.date}
@@ -796,9 +837,7 @@ export default function ProformaInvoicePage() {
                     <div className="row" style={{ justifyContent: 'space-between', gap: 12 }}>
                       <div>
                         <div className="label">Product line {index + 1}</div>
-                        <div className="muted">
-                          Quantity นี้ใช้คำนวณ CTN, PCS, amount ใน proforma invoice
-                        </div>
+                        <div className="muted">{documentConfig.quantityHint}</div>
                       </div>
                       <button type="button" className="btn" onClick={() => removeItem(index)}>
                         Remove
@@ -992,15 +1031,15 @@ export default function ProformaInvoicePage() {
           <div className="preview-shell classic-preview-shell">
             <div className="preview-head classic-toolbar classic-preview-head">
               <div>
-                <div className="preview-eyebrow">Proforma invoice</div>
-                <h2>Proforma invoice preview</h2>
+                <div className="preview-eyebrow">{documentConfig.pageLabel}</div>
+                <h2>{documentConfig.previewTitle}</h2>
                 <p>ใช้สินค้า ราคา ผู้ขาย และ FX rate ชุดเดียวกับหน้า Classic quotation</p>
               </div>
               <button type="button" className="btn" onClick={handleRefreshFromQuotation}>
                 Refresh from quotation
               </button>
               <button type="button" className="btn classic-save-btn" onClick={handleSaveProformaData}>
-                Save proforma
+                {documentConfig.saveButtonLabel}
               </button>
               <button
                 type="button"
@@ -1034,7 +1073,10 @@ export default function ProformaInvoicePage() {
               </div>
             ) : null}
 
-            <section className="quote-sheet-v2 proforma-sheet pi-sheet" aria-label="Proforma invoice preview">
+            <section
+              className="quote-sheet-v2 proforma-sheet pi-sheet"
+              aria-label={documentConfig.previewTitle}
+            >
               <header className="pi-header">
                 <img
                   src={quote.logoDataUrl || DEFAULT_CLASSIC_LOGO_SRC}
@@ -1048,7 +1090,7 @@ export default function ProformaInvoicePage() {
                     <p key={line}>{line}</p>
                   ))}
                 </div>
-                <div className="pi-title">PROFORMA INVOICE</div>
+                <div className="pi-title">{documentConfig.documentTitle}</div>
               </header>
 
               <section className="pi-consignee-grid">
@@ -1062,21 +1104,23 @@ export default function ProformaInvoicePage() {
                 </article>
                 <article className="pi-box pi-doc-meta">
                   <div>
-                    <span>Proforma No.</span>
+                    <span>{documentConfig.numberLabel}</span>
                     <strong>{proformaNo}</strong>
                   </div>
                   <div>
-                    <span>Proforma Date</span>
+                    <span>{documentConfig.dateLabel}</span>
                     <strong>{formatDisplayDate(quote.date)}</strong>
                   </div>
                   <div>
                     <span>Currency</span>
                     <strong>{currency}</strong>
                   </div>
-                  <div>
-                    <span>Valid until</span>
-                    <strong>{validUntilDate}</strong>
-                  </div>
+                  {documentConfig.showValidity ? (
+                    <div>
+                      <span>Valid until</span>
+                      <strong>{validUntilDate}</strong>
+                    </div>
+                  ) : null}
                 </article>
               </section>
 

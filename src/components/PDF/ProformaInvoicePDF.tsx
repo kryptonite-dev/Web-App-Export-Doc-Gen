@@ -1,7 +1,11 @@
 import React from 'react';
 import { Document, Image, Page, StyleSheet, Text, View } from '@react-pdf/renderer';
 import type { ClassicQuotation } from '../ClassicQuotationPage';
-import { buildProformaInvoiceLines } from '../ProformaInvoicePage';
+import {
+  buildProformaInvoiceLines,
+  getInvoiceDocumentConfig,
+  type InvoiceDocumentType,
+} from '../ProformaInvoicePage';
 import { fmt } from '../../utils';
 
 const QUOTATION_VALIDITY_DAYS = 14;
@@ -129,9 +133,10 @@ function amountInWords(currency: string, amount: number) {
   return `${currencyLabel} ${integerToWords(major)}${minorText} Only`;
 }
 
-function buildProformaNo(refNo: string) {
+function buildInvoiceNo(refNo: string, documentType: InvoiceDocumentType = 'proforma') {
   const cleanRef = refNo.trim() || 'QUO';
-  return cleanRef.toUpperCase().startsWith('PI-') ? cleanRef : `PI-${cleanRef}`;
+  const prefix = documentType === 'commercial' ? 'CI-' : 'PI-';
+  return cleanRef.toUpperCase().startsWith(prefix) ? cleanRef : `${prefix}${cleanRef}`;
 }
 
 function derivePortOfLoading(deliveryTerm: string) {
@@ -486,9 +491,15 @@ const styles = StyleSheet.create({
 type Props = {
   quote: ClassicQuotation;
   defaultLogoSrc: string;
+  documentType?: InvoiceDocumentType;
 };
 
-export default function ProformaInvoicePDF({ quote, defaultLogoSrc }: Props) {
+export default function ProformaInvoicePDF({
+  quote,
+  defaultLogoSrc,
+  documentType = 'proforma',
+}: Props) {
+  const documentConfig = getInvoiceDocumentConfig(documentType);
   const lines = buildProformaInvoiceLines(quote);
   const currency = normalizeCurrency(quote.priceCurrency);
   const validUntilDate = formatDisplayDate(addDaysIso(quote.date, QUOTATION_VALIDITY_DAYS));
@@ -502,7 +513,7 @@ export default function ProformaInvoicePDF({ quote, defaultLogoSrc }: Props) {
   const amountHeader = `TOTAL ${currency}`;
 
   return (
-    <Document title={`${quote.buyerName || 'Buyer'} proforma invoice`}>
+    <Document title={`${quote.buyerName || 'Buyer'} ${documentConfig.pdfTitle}`}>
       <Page size="A4" style={styles.page}>
         <View style={styles.topRule} />
 
@@ -518,7 +529,7 @@ export default function ProformaInvoicePDF({ quote, defaultLogoSrc }: Props) {
               ))}
             </View>
           </View>
-          <Text style={styles.docTitle}>PROFORMA INVOICE</Text>
+          <Text style={styles.docTitle}>{documentConfig.documentTitle}</Text>
         </View>
 
         <View style={styles.invoiceGrid} wrap={false}>
@@ -533,14 +544,18 @@ export default function ProformaInvoicePDF({ quote, defaultLogoSrc }: Props) {
             <Text style={styles.text}>Attn: {quote.attention || '-'}</Text>
           </View>
           <View style={styles.invoiceMeta}>
-            <Text style={styles.label}>Proforma No.</Text>
-            <Text style={styles.value}>{buildProformaNo(quote.refNo)}</Text>
-            <Text style={[styles.label, { marginTop: 6 }]}>Proforma Date</Text>
+            <Text style={styles.label}>{documentConfig.numberLabel}</Text>
+            <Text style={styles.value}>{buildInvoiceNo(quote.refNo, documentType)}</Text>
+            <Text style={[styles.label, { marginTop: 6 }]}>{documentConfig.dateLabel}</Text>
             <Text style={styles.value}>{formatDisplayDate(quote.date)}</Text>
             <Text style={[styles.label, { marginTop: 6 }]}>Currency</Text>
             <Text style={styles.value}>{currency}</Text>
-            <Text style={[styles.label, { marginTop: 6 }]}>Valid until</Text>
-            <Text style={styles.value}>{validUntilDate}</Text>
+            {documentConfig.showValidity ? (
+              <>
+                <Text style={[styles.label, { marginTop: 6 }]}>Valid until</Text>
+                <Text style={styles.value}>{validUntilDate}</Text>
+              </>
+            ) : null}
           </View>
         </View>
 

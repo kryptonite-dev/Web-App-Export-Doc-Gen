@@ -25,7 +25,7 @@ import {
 import { CommonDoc, Currency, Party } from './types';
 import { todayISO } from './utils';
 
-type AppPage = 'proposal' | 'loading' | 'quote' | 'classic' | 'proforma';
+type AppPage = 'proposal' | 'loading' | 'quote' | 'classic' | 'proforma' | 'commercial';
 type StatusState =
   | {
       text: string;
@@ -289,6 +289,8 @@ function getRouteContext() {
           ? 'classic'
           : pageParam === 'proforma'
             ? 'proforma'
+            : pageParam === 'commercial'
+              ? 'commercial'
             : 'proposal';
   return {
     isClientView: params.get('view') === 'client',
@@ -430,6 +432,7 @@ function App() {
   const [quickQuoteKey, setQuickQuoteKey] = useState(0);
   const [classicQuotationKey, setClassicQuotationKey] = useState(0);
   const [proformaInvoiceKey, setProformaInvoiceKey] = useState(0);
+  const [commercialInvoiceKey, setCommercialInvoiceKey] = useState(0);
   const [doc, setDoc] = useState<CommonDoc>(() => {
     if (route.sharedDoc) return hydrateDoc(route.sharedDoc);
     return hydrateDoc(safeParseDraft(localStorage.getItem(STORAGE_KEY)));
@@ -461,6 +464,8 @@ function App() {
             ? 'Classic Export Quotation'
             : page === 'proforma'
               ? 'Proforma Invoice'
+              : page === 'commercial'
+                ? 'Commercial Invoice'
               : 'ThaiFex Sales Proposal Studio';
   }, [doc.subject, page, route.isClientView]);
 
@@ -710,6 +715,8 @@ function App() {
       url.searchParams.set('page', 'classic');
     } else if (next === 'proforma') {
       url.searchParams.set('page', 'proforma');
+    } else if (next === 'commercial') {
+      url.searchParams.set('page', 'commercial');
     } else {
       url.searchParams.delete('page');
     }
@@ -781,6 +788,12 @@ function App() {
             >
               Proforma invoice
             </button>
+            <button
+              className={`btn ${page === 'commercial' ? 'primary' : ''}`}
+              onClick={() => handlePageChange('commercial')}
+            >
+              Commercial invoice
+            </button>
           </div>
           <div className="app-kicker">
             {page === 'loading'
@@ -791,6 +804,8 @@ function App() {
                   ? 'Excel-style export quotation'
                   : page === 'proforma'
                     ? 'Order-confirmation invoice'
+                    : page === 'commercial'
+                      ? 'Final shipment invoice'
                 : 'ThaiFex sales workflow'}
           </div>
           <h1>
@@ -802,6 +817,8 @@ function App() {
                   ? 'Classic Export Quotation'
                   : page === 'proforma'
                     ? 'Proforma Invoice'
+                    : page === 'commercial'
+                      ? 'Commercial Invoice'
                 : 'ThaiFex Sales Proposal Studio'}
           </h1>
           <p>
@@ -813,6 +830,8 @@ function App() {
                   ? 'Create a separate Excel-style export quotation that follows the attached workbook layout without touching the existing buyer proposal flow.'
                   : page === 'proforma'
                     ? 'Generate a proforma invoice from the same Classic quotation data: seller, buyer, products, order quantity, price basis, bank details, and FX rate.'
+                    : page === 'commercial'
+                      ? 'Issue a commercial invoice from the same shared seller, buyer, product, bank, and FX data after the order is confirmed.'
                 : 'Prepare one buyer-ready quotation, open it as an online proposal on a second screen, and export the same content to PDF without reformatting.'}
           </p>
         </div>
@@ -857,9 +876,13 @@ function App() {
                         ? (localStorage.removeItem(CLASSIC_QUOTATION_STORAGE_KEY),
                           localStorage.removeItem(CLASSIC_PRICE_CALCULATOR_STORAGE_KEY),
                           setClassicQuotationKey((current) => current + 1))
-                        : (localStorage.removeItem(CLASSIC_QUOTATION_STORAGE_KEY),
-                          localStorage.removeItem(CLASSIC_PRICE_CALCULATOR_STORAGE_KEY),
-                          setProformaInvoiceKey((current) => current + 1))
+                        : page === 'proforma'
+                          ? (localStorage.removeItem(CLASSIC_QUOTATION_STORAGE_KEY),
+                            localStorage.removeItem(CLASSIC_PRICE_CALCULATOR_STORAGE_KEY),
+                            setProformaInvoiceKey((current) => current + 1))
+                          : (localStorage.removeItem(CLASSIC_QUOTATION_STORAGE_KEY),
+                            localStorage.removeItem(CLASSIC_PRICE_CALCULATOR_STORAGE_KEY),
+                            setCommercialInvoiceKey((current) => current + 1))
                 }
               >
                 {page === 'loading'
@@ -868,7 +891,9 @@ function App() {
                     ? 'Reset quote'
                     : page === 'classic'
                       ? 'Reset classic quotation'
-                      : 'Reset proforma invoice'}
+                      : page === 'proforma'
+                        ? 'Reset proforma invoice'
+                        : 'Reset commercial invoice'}
               </button>
             </>
           )}
@@ -1331,6 +1356,8 @@ function App() {
         <QuickQuotePage key={quickQuoteKey} />
       ) : page === 'proforma' ? (
         <ProformaInvoicePage key={proformaInvoiceKey} />
+      ) : page === 'commercial' ? (
+        <ProformaInvoicePage key={commercialInvoiceKey} documentType="commercial" />
       ) : (
         <ClassicQuotationPage key={classicQuotationKey} />
       )}
